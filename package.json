@@ -1,0 +1,23 @@
+{
+  "name": "one-code-multi-pay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "一码多付电商系统 - 一个二维码，微信支付宝通吃",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:web\"",
+    "dev:web": "npm run dev -w apps/web",
+    "dev:server": "npm run dev -w apps/server",
+    "build": "npm run build -w packages/shared && npm run build -w packages/payment && npm run build -w packages/db && npm run build -w apps/server && npm run build -w apps/web",
+    "db:migrate": "npm run migrate -w packages/db",
+    "db:studio": "npm run studio -w packages/db",
+    "qr:generate": "node scripts/generate-qr.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.4.0"
+  }
+}

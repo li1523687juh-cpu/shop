@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>一码多付 · 店铺</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<style>
+:root {
+  --green:#07C160; --green-d:#06AD56; --blue:#1677FF; --blue-d:#0958D9;
+  --red:#EE0A24; --orange:#FF976A; --bg:#F5F5F5; --card:#FFF;
+  --text:#333; --text2:#999; --border:#EBEDF0; --radius:12px;
+  --shadow:0 2px 12px rgba(0,0,0,0.08);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+body.buyer{padding-bottom:65px} body.seller{padding-bottom:0}
+#app{min-height:100vh}
+/* Toast */
+#toast-c{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px}
+.toast{padding:12px 24px;border-radius:8px;color:#fff;font-size:14px;white-space:nowrap;animation:dIn 0.3s ease}
+.toast.ok{background:var(--green)} .toast.err{background:var(--red)}
+@keyframes dIn{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
+/* Buttons */
+.btn{display:inline-block;padding:12px 24px;border-radius:8px;border:none;font-size:16px;cursor:pointer;transition:.2s;text-align:center;text-decoration:none}
+.btn-g{background:var(--green);color:#fff}.btn-g:hover{background:var(--green-d)}
+.btn-b{background:var(--blue);color:#fff}.btn-b:hover{background:var(--blue-d)}
+.btn-r{background:var(--red);color:#fff}
+.btn-o{background:var(--orange);color:#fff}
+.btn-blk{display:block;width:100%}
+.btn:disabled{opacity:.6;cursor:not-allowed}
+.btn-lg{padding:16px 0;font-size:18px;font-weight:700;border-radius:12px}
+.btn-sm{padding:6px 14px;font-size:13px}
+.btn-gray{background:#f0f0f0;color:var(--text)}
+/* Cards */
+.card{background:var(--card);border-radius:var(--radius);padding:16px;margin-bottom:12px;box-shadow:var(--shadow)}
+/* Forms */
+.inp{width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);font-size:14px;outline:none;margin-bottom:10px}
+.inp:focus{border-color:var(--green)}
+/* Buyer Bottom Nav */
+#buyer-nav{position:fixed;bottom:0;left:0;right:0;height:58px;background:var(--card);border-top:1px solid var(--border);display:flex;justify-content:space-around;align-items:center;z-index:100}
+#buyer-nav a{display:flex;flex-direction:column;align-items:center;color:var(--text2);text-decoration:none;font-size:11px;gap:2px}
+#buyer-nav a.ac{color:var(--green)} #buyer-nav a i{font-size:20px}
+.badge{position:relative} .badge em{position:absolute;top:-6px;right:-10px;background:var(--red);color:#fff;font-size:10px;min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-style:normal}
+/* Seller Sidebar (mobile: bottom bar, desktop: sidebar) */
+#seller-nav{position:fixed;bottom:0;left:0;right:0;height:58px;background:var(--card);border-top:1px solid var(--border);display:flex;justify-content:space-around;align-items:center;z-index:100}
+#seller-nav a{display:flex;flex-direction:column;align-items:center;color:var(--text2);text-decoration:none;font-size:11px;gap:2px}
+#seller-nav a.ac{color:var(--blue)} #seller-nav a i{font-size:20px}
+/* Product Grid */
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(162px,1fr));gap:12px}
+.pcard{border-radius:var(--radius);overflow:hidden;background:var(--card);box-shadow:var(--shadow);display:flex;flex-direction:column}
+.pimg{width:100%;padding-top:100%;position:relative;background:#f0f0f0;overflow:hidden}
+.pimg img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover}
+.pimg .soldout{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:16px}
+.pinfo{padding:10px;flex:1;display:flex;flex-direction:column}
+.pinfo h3{font-size:14px;font-weight:600;margin-bottom:4px;line-height:1.3}
+.pinfo .pr{color:var(--red);font-size:16px;font-weight:700;margin-bottom:4px}
+.pinfo .sk{color:var(--text2);font-size:11px}
+/* Cart */
+.citem{display:flex;gap:12px;background:var(--card);border-radius:var(--radius);padding:12px;margin-bottom:10px;box-shadow:var(--shadow)}
+.citem img{width:80px;height:80px;border-radius:8px;object-fit:cover;background:#f0f0f0}
+.citem .ci{flex:1}
+.citem h4{font-size:14px;font-weight:600}
+.citem .pr{color:var(--red);font-weight:700;font-size:15px;margin:4px 0}
+.qty-c{display:flex;align-items:center;gap:8px;margin-top:8px}
+.qty-b{width:28px;height:28px;border-radius:14px;border:1px solid var(--border);background:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.qty-v{min-width:24px;text-align:center;font-weight:600}
+/* Checkout */
+.pay-opts{display:flex;gap:12px;margin-bottom:20px}
+.pay-opt{flex:1;padding:16px;border-radius:var(--radius);border:2px solid var(--border);cursor:pointer;text-align:center;transition:.2s}
+.pay-opt.sel-wx{border-color:var(--green);background:#f0fdf4}
+.pay-opt.sel-ali{border-color:var(--blue);background:#eff6ff}
+.pay-opt i{font-size:32px}
+.pay-opt p{margin-top:8px;font-weight:600}
+/* Badges */
+.badge-s{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.badge-s.PAID{background:#f0fdf4;color:var(--green)}
+.badge-s.PENDING{background:#fff7ed;color:var(--orange)}
+.badge-s.EXPIRED,.badge-s.CANCELLED{background:#f5f5f5;color:var(--text2)}
+/* Center */
+.cen{text-align:center;padding:60px 20px}
+.cen i{font-size:48px;color:#ddd;margin-bottom:16px}
+.cen p{color:var(--text2);margin:8px 0 16px}
+/* Headers */
+h2{font-size:20px;font-weight:700;padding:16px 0 12px}
+h3{font-size:16px;font-weight:600;margin-bottom:12px}
+/* Fix bottom */
+.fix-bot{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;z-index:99}
+.fix-bot .amt{font-size:20px;font-weight:700;color:var(--red)}
+/* Split */
+.sp{display:flex;justify-content:space-between;align-items:center;padding:6px 0}
+.sp .l{color:var(--text2)} .sp .r{font-weight:600}
+.sp.tot{border-top:1px solid var(--border);padding-top:12px;margin-top:8px}
+.sp.tot .l{font-size:18px;font-weight:700;color:var(--text)}
+.sp.tot .r{font-size:22px;font-weight:700;color:var(--red)}
+/* QR */
+.qr-box{display:flex;flex-direction:column;align-items:center;padding:24px 0}
+/* Login page */
+.login-box{max-width:400px;margin:0 auto;padding:40px 20px}
+.login-role-btn{display:flex;align-items:center;justify-content:center;gap:12px;padding:18px 0;border-radius:12px;border:none;font-size:18px;font-weight:600;cursor:pointer;color:#fff;width:100%;margin-bottom:14px;transition:.2s}
+.login-role-btn.wx{background:var(--green)} .login-role-btn.wx:hover{background:var(--green-d)}
+.login-role-btn.ali{background:var(--blue)} .login-role-btn.ali:hover{background:var(--blue-d)}
+.login-role-btn.seller{background:#333;color:#fff} .login-role-btn.seller:hover{background:#555}
+.login-role-btn i{font-size:28px}
+.role-divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--text2);font-size:13px}
+.role-divider::before,.role-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+/* Header bar */
+.top-bar{background:var(--card);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50}
+.top-bar .title{font-size:18px;font-weight:700}
+.top-bar .role-tag{font-size:11px;padding:4px 10px;border-radius:12px;font-weight:600}
+.top-bar .role-tag.buyer{background:#f0fdf4;color:var(--green)}
+.top-bar .role-tag.seller{background:#f5f5f5;color:#333}
+/* Stats grid */
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat-card{background:var(--card);border-radius:var(--radius);padding:16px;text-align:center;box-shadow:var(--shadow)}
+.stat-card .val{font-size:20px;font-weight:700;color:var(--red)}
+.stat-card .lbl{font-size:12px;color:var(--text2);margin-top:4px}
+/* Seller product list */
+.sprod-row{display:flex;gap:10px;align-items:center;background:var(--card);border-radius:var(--radius);padding:10px;margin-bottom:8px;box-shadow:var(--shadow)}
+.sprod-row img{width:56px;height:56px;border-radius:6px;object-fit:cover;background:#f0f0f0}
+.sprod-row .info{flex:1}
+.sprod-row .info h4{font-size:14px;font-weight:600}
+.sprod-row .info p{font-size:12px;color:var(--text2);margin-top:2px}
+/* Action bar */
+.act-bar{display:flex;gap:8px;margin:16px 0}
+/* Modal */
+.modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:200;align-items:center;justify-content:center}
+.modal.show{display:flex}
+.modal .mc{background:#fff;border-radius:var(--radius);padding:24px;max-width:420px;width:92%;max-height:85vh;overflow-y:auto}
+.modal h3{margin-bottom:16px;font-size:18px}
+/* Padded */
+.pad{padding:12px}
+/* Gray text */
+.gray{color:var(--text2);font-size:12px}
+</style>
+</head>
+<body>
+<div id="toast-c"></div>
+<div id="app"></div>
+<div id="nav-area"></div>
+<script>
+// ==================== DATA LAYER ====================
+const LS = {
+  get(k,d){ try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d} },
+  set(k,v){ localStorage.setItem(k,JSON.stringify(v)) }
+};
+const SEED = [
+  {id:'s1',name:'手冲咖啡壶套装',price:15900,stock:25,image:'https://picsum.photos/seed/coffee/400/400',desc:'含玻璃壶+滤杯+手冲壶',listed:true,createdAt:new Date().toISOString()},
+  {id:'s2',name:'简约帆布双肩包',price:8900,stock:50,image:'https://picsum.photos/seed/backpack/400/400',desc:'大容量防水帆布包',listed:true,createdAt:new Date().toISOString()},
+  {id:'s3',name:'无线蓝牙降噪耳机',price:29900,stock:15,image:'https://picsum.photos/seed/headphone/400/400',desc:'30h续航 主动降噪',listed:true,createdAt:new Date().toISOString()},
+  {id:'s4',name:'手工陶瓷马克杯',price:3900,stock:100,image:'https://picsum.photos/seed/mug/400/400',desc:'手工制作 350ml',listed:true,createdAt:new Date().toISOString()},
+  {id:'s5',name:'纯棉T恤基础款',price:7900,stock:80,image:'https://picsum.photos/seed/tshirt/400/400',desc:'100%精梳棉 男女同款',listed:true,createdAt:new Date().toISOString()},
+  {id:'s6',name:'便携充电宝10000mAh',price:12900,stock:35,image:'https://picsum.photos/seed/powerbank/400/400',desc:'轻薄小巧 支持快充',listed:true,createdAt:new Date().toISOString()},
+];
+function getProducts(){ const s=LS.get('products',null); return s&&s.length>0?s:SEED; }
+function saveProducts(p){ LS.set('products',p); }
+function getCart(){ return LS.get('cart',[]); }
+function saveCart(c){ LS.set('cart',c); }
+function getOrders(){ return LS.get('orders',[]); }
+function saveOrders(o){ LS.set('orders',o); }
+function getUser(){ return LS.get('user',null); }
+function saveUser(u){ LS.set('user',u); }
+
+// ==================== HELPERS ====================
+const F=c=>'¥'+(c/100).toFixed(2);
+const dt=d=>new Date(d).toLocaleString('zh-CN');
+const uid=()=>'id_'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const OTN=()=>'OTN-'+Date.now().toString(36).toUpperCase()+'-'+Math.random().toString(36).slice(2,8).toUpperCase();
+
+function toast(msg,type='ok'){
+  const c=document.getElementById('toast-c');
+  const d=document.createElement('div');
+  d.className='toast '+type; d.textContent=msg;
+  c.appendChild(d); setTimeout(()=>d.remove(),2500);
+}
+
+// ==================== ROUTER ====================
+let role=''; // 'buyer' | 'seller'
+let buyerPage='shop';
+let sellerPage='dashboard';
+let cartCount=0;
+
+function goBuyer(p){ buyerPage=p; role='buyer'; render(); }
+function goSeller(p){ sellerPage=p; role='seller'; render(); }
+function goLogin(){ role=''; saveUser(null); render(); }
+function switchRole(r){ role=r; if(r==='buyer') buyerPage='shop'; else sellerPage='dashboard'; render(); }
+
+function render(){
+  const app=document.getElementById('app');
+  const nav=document.getElementById('nav-area');
+  const user=getUser();
+
+  if(!user){ renderLogin(app); nav.innerHTML=''; return; }
+
+  if(role==='seller'){
+    document.body.className='seller';
+    app.style.paddingBottom='0';
+    nav.innerHTML = `
+    <div id="seller-nav">
+      <a href="#" class="${sellerPage==='dashboard'?'ac':''}" onclick="goSeller('dashboard');return false"><i class="fas fa-chart-line"></i>数据</a>
+      <a href="#" class="${sellerPage==='products'?'ac':''}" onclick="goSeller('products');return false"><i class="fas fa-boxes"></i>商品</a>
+      <a href="#" class="${sellerPage==='orders'?'ac':''}" onclick="goSeller('orders');return false"><i class="fas fa-receipt"></i>订单</a>
+      <a href="#" onclick="goLogin();return false"><i class="fas fa-sign-out-alt"></i>退出</a>
+    </div>`;
+    app.style.paddingBottom='65px';
+    switch(sellerPage){
+      case 'dashboard': renderSellerDashboard(app); break;
+      case 'products': renderSellerProducts(app); break;
+      case 'orders': renderSellerOrders(app); break;
+    }
+  } else {
+    role='buyer';
+    document.body.className='buyer';
+    app.style.paddingBottom='65px';
+    cartCount = getCart().reduce((s,i)=>s+i.quantity,0);
+    nav.innerHTML = `
+    <div id="buyer-nav">
+      <a href="#" class="${buyerPage==='shop'?'ac':''}" onclick="goBuyer('shop');return false"><i class="fas fa-store"></i>店铺</a>
+      <a href="#" class="badge ${buyerPage==='cart'?'ac':''}" onclick="goBuyer('cart');return false">
+        <i class="fas fa-shopping-cart"></i>${cartCount>0?`<em>${cartCount}</em>`:''}<span>购物车</span></a>
+      <a href="#" class="${buyerPage==='orders'?'ac':''}" onclick="goBuyer('orders');return false"><i class="fas fa-receipt"></i>订单</a>
+      <a href="#" onclick="goLogin();return false"><i class="fas fa-sign-out-alt"></i>退出</a>
+    </div>`;
+    switch(buyerPage){
+      case 'shop': renderShop(app); break;
+      case 'cart': renderCart(app); break;
+      case 'checkout': renderCheckout(app); break;
+      case 'result': renderResult(app); break;
+      case 'orders': renderBuyerOrders(app); break;
+    }
+  }
+  window.scrollTo(0,0);
+}
+
+// ==================== LOGIN ====================
+function renderLogin(app){
+  document.body.className='';
+  app.style.paddingBottom='0';
+  app.innerHTML = `
+<div class="login-box">
+  <div style="text-align:center;padding:40px 0 30px">
+    <div style="font-size:56px;margin-bottom:12px">🛍️</div>
+    <h2 style="font-size:24px;margin-bottom:4px">一码多付</h2>
+    <p style="color:var(--text2);margin-bottom:4px">一个二维码 · 微信支付宝都能付</p>
+    <p style="color:var(--text2);font-size:12px">扫码即可逛店下单支付</p>
+  </div>
+
+  <p style="font-weight:600;margin-bottom:12px;font-size:15px">👤 我是买家 — 逛店购物</p>
+  <button class="login-role-btn wx" onclick="doLogin('wechat')">
+    <i class="fab fa-weixin"></i> 微信登录
+  </button>
+  <button class="login-role-btn ali" onclick="doLogin('alipay')">
+    <i class="fab fa-alipay"></i> 支付宝登录
+  </button>
+
+  <div class="role-divider">我是卖家</div>
+  <button class="login-role-btn seller" onclick="doLogin('seller')">
+    <i class="fas fa-store-alt"></i> 商家管理后台
+  </button>
+
+  <p style="text-align:center;color:var(--text2);font-size:12px;margin-top:20px">模拟登录，点击即登 · 买家密码直接进入</p>
+</div>`;
+}
+
+function doLogin(type){
+  if(type==='seller'){
+    // Seller needs password
+    const pw = prompt('请输入商家管理密码：');
+    if(pw !== 'admin123'){ toast('密码错误','err'); return; }
+    saveUser({channel:'seller',name:'商家管理员',id:'seller_001',loginAt:new Date().toISOString()});
+    toast('商家登录成功');
+    switchRole('seller');
+  } else {
+    const name = type==='wechat'?'微信用户':'支付宝用户';
+    saveUser({channel:type,name,id:uid(),loginAt:new Date().toISOString()});
+    toast((type==='wechat'?'微信':'支付宝')+'登录成功');
+    switchRole('buyer');
+  }
+}
+
+// ==================== BUYER: SHOP ====================
+function renderShop(app){
+  const products=getProducts().filter(p=>p.listed);
+  let html=`
+<div class="top-bar">
+  <span class="title">🛍️ 一码多付店铺</span>
+  <span class="role-tag buyer">买家</span>
+</div>
+<div class="pad">
+  <p class="gray" style="margin-bottom:12px;text-align:center">微信 / 支付宝用户请扫码进入 · 直接浏览下单支付</p>`;
+
+  if(products.length===0){
+    html+=`<div class="cen"><i class="fas fa-box-open"></i><p>商家正在准备商品...</p></div>`;
+  } else {
+    html+=`<div class="pgrid">`;
+    products.forEach(p=>{
+      html+=`
+      <div class="pcard">
+        <div class="pimg">
+          <img src="${p.image}" alt="${p.name}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22 fill=%22%23eee%22><rect width=%22200%22 height=%22200%22/><text x=%2230%22 y=%22110%22 fill=%22%23999%22>暂无</text></svg>'">
+          ${p.stock<=0?'<div class="soldout">售罄</div>':''}
+        </div>
+        <div class="pinfo">
+          <h3>${p.name}</h3>
+          <div class="pr">${F(p.price)}</div>
+          <div class="sk">库存: ${p.stock}</div>
+          <button class="btn btn-g" style="margin-top:auto;font-size:13px;padding:8px 0;width:100%"
+            ${p.stock<=0?'disabled':''}
+            onclick="buyerAddCart('${p.id}')"><i class="fas fa-cart-plus"></i> 加入购物车</button>
+        </div>
+      </div>`;
+    });
+    html+=`</div>`;
+  }
+
+  // QR Code
+  html+=`
+  <div style="margin-top:32px;padding-bottom:20px;display:flex;flex-direction:column;align-items:center">
+    <div class="card" style="text-align:center;max-width:340px;width:100%">
+      <h3>📱 扫码进入店铺</h3>
+      <p class="gray" style="margin-bottom:16px">微信 / 支付宝 都能扫</p>
+      <div id="qrcode-c" style="display:flex;justify-content:center"></div>
+      <p class="gray" style="margin-top:12px;word-break:break-all" id="qr-url"></p>
+      <button class="btn btn-g btn-sm" style="margin-top:12px" onclick="downloadQR()"><i class="fas fa-download"></i> 下载二维码</button>
+      <p class="gray" style="margin-top:8px">打印贴在店里，顾客扫一扫即可逛店下单</p>
+    </div>
+  </div></div>`;
+
+  app.innerHTML=html;
+
+  // Generate QR
+  setTimeout(()=>{
+    const qrUrl=window.location.href.replace(/#.*$/,'')+'#shop';
+    const c=document.getElementById('qrcode-c');
+    const u=document.getElementById('qr-url');
+    if(c){ c.innerHTML='';
+      try{ QRCode.toCanvas(document.createElement('canvas'),qrUrl,{width:200,margin:2},(err,canvas)=>{if(!err)c.appendChild(canvas);}); }catch(e){}
+    }
+    if(u) u.textContent=qrUrl;
+  },100);
+}
+
+function downloadQR(){
+  const canvas=document.querySelector('#qrcode-c canvas');
+  if(!canvas)return;
+  const a=document.createElement('a'); a.download='店铺二维码.png'; a.href=canvas.toDataURL('image/png'); a.click();
+}
+
+function buyerAddCart(pid){
+  const products=getProducts();
+  const p=products.find(x=>x.id===pid);
+  if(!p||p.stock<=0){toast('已售罄','err');return;}
+  const cart=getCart();
+  const ex=cart.find(i=>i.productId===pid);
+  if(ex){ if(ex.quantity>=p.stock){toast('库存不足','err');return;} ex.quantity++; }
+  else { cart.push({productId:p.id,name:p.name,image:p.image,price:p.price,quantity:1,stock:p.stock}); }
+  saveCart(cart); cartCount=cart.reduce((s,i)=>s+i.quantity,0);
+  toast('已加入: '+p.name); render();
+}
+
+// ==================== BUYER: CART ====================
+function renderCart(app){
+  const cart=getCart();
+  cartCount=cart.reduce((s,i)=>s+i.quantity,0);
+  const total=cart.reduce((s,i)=>s+i.price*i.quantity,0);
+
+  let html=`<div class="top-bar"><span class="title">🛒 购物车 (${cartCount}件)</span><span class="role-tag buyer">买家</span></div><div class="pad">`;
+
+  if(cart.length===0){
+    html+=`<div class="cen"><i class="fas fa-shopping-cart"></i><p>购物车是空的</p><button class="btn btn-g" onclick="goBuyer('shop')">去逛逛</button></div>`;
+  } else {
+    cart.forEach(item=>{
+      html+=`
+      <div class="citem">
+        <img src="${item.image}" alt="${item.name}" onerror="this.style.display='none'">
+        <div class="ci">
+          <h4>${item.name}</h4>
+          <div class="pr">${F(item.price)}</div>
+          <div class="qty-c">
+            <button class="qty-b" onclick="chgQty('${item.productId}',${item.quantity-1})">−</button>
+            <span class="qty-v">${item.quantity}</span>
+            <button class="qty-b" onclick="chgQty('${item.productId}',${item.quantity+1})">+</button>
+            <button style="margin-left:auto;color:var(--red);border:none;background:none;font-size:18px;cursor:pointer"
+              onclick="rmCart('${item.productId}')"><i class="fas fa-trash-alt"></i></button>
+          </div>
+        </div>
+      </div>`;
+    });
+    html+=`
+    <div class="fix-bot">
+      <div><span style="font-size:13px;color:var(--text2)">合计: </span><span class="amt">${F(total)}</span></div>
+      <button class="btn btn-g" style="font-size:16px;padding:12px 32px" onclick="goBuyer('checkout')">去结算</button>
+    </div><div style="height:70px"></div>`;
+  }
+  html+=`</div>`;
+  app.innerHTML=html;
+}
+
+function chgQty(pid,qty){
+  const cart=getCart();
+  if(qty<=0){rmCart(pid);return;}
+  const item=cart.find(i=>i.productId===pid);
+  if(item){ if(qty>item.stock){toast('库存不足','err');return;} item.quantity=qty; }
+  saveCart(cart); cartCount=cart.reduce((s,i)=>s+i.quantity,0); render();
+}
+
+function rmCart(pid){
+  saveCart(getCart().filter(i=>i.productId!==pid));
+  cartCount=getCart().reduce((s,i)=>s+i.quantity,0); render();
+}
+
+// ==================== BUYER: CHECKOUT ====================
+let payChannel='wechat';
+
+function renderCheckout(app){
+  const cart=getCart();
+  if(cart.length===0){goBuyer('cart');return;}
+  const total=cart.reduce((s,i)=>s+i.price*i.quantity,0);
+
+  let html=`
+<div class="top-bar"><span class="title">📋 确认订单</span><span class="role-tag buyer">买家</span></div>
+<div class="pad">
+  ${cart.map(i=>`
+  <div class="citem">
+    <img src="${i.image}" alt="${i.name}" onerror="this.style.display='none'" style="width:56px;height:56px">
+    <div class="ci">
+      <h4>${i.name}</h4>
+      <div style="display:flex;justify-content:space-between">
+        <span style="font-size:12px;color:var(--text2)">×${i.quantity}</span>
+        <span style="font-weight:600">${F(i.price*i.quantity)}</span>
+      </div>
+    </div>
+  </div>`).join('')}
+
+  <div class="card">
+    <div class="sp"><span class="l">商品总计</span><span class="r">${F(total)}</span></div>
+    <div class="sp tot"><span class="l">应付金额</span><span class="r">${F(total)}</span></div>
+  </div>
+
+  <h3>选择支付方式</h3>
+  <div class="pay-opts">
+    <div class="pay-opt ${payChannel==='wechat'?'sel-wx':''}" onclick="selPay('wechat')">
+      <i class="fab fa-weixin" style="color:var(--green)"></i><p>微信支付</p>
+    </div>
+    <div class="pay-opt ${payChannel==='alipay'?'sel-ali':''}" onclick="selPay('alipay')">
+      <i class="fab fa-alipay" style="color:var(--blue)"></i><p>支付宝</p>
+    </div>
+  </div>
+
+  <button class="btn btn-blk btn-lg" style="background:${payChannel==='wechat'?'var(--green)':'var(--blue)'};color:#fff"
+    onclick="doPay()">
+    <i class="fab fa-${payChannel==='wechat'?'weixin':'alipay'}"></i> 确认支付 ${F(total)}
+  </button>
+  <div style="height:20px"></div>
+</div>`;
+  app.innerHTML=html;
+}
+
+function selPay(ch){ payChannel=ch; render(); }
+
+function doPay(){
+  const cart=getCart();
+  if(cart.length===0)return;
+  const total=cart.reduce((s,i)=>s+i.price*i.quantity,0);
+
+  const order={
+    id:uid(), outTradeNo:OTN(),
+    items:cart.map(i=>({...i})),
+    totalAmount:total, status:'PENDING', paymentChannel:payChannel,
+    buyer:getUser()?.name||'匿名用户',
+    paidAt:null, createdAt:new Date().toISOString()
+  };
+
+  const orders=getOrders(); orders.unshift(order); saveOrders(orders);
+
+  // Update stock
+  const products=getProducts();
+  cart.forEach(ci=>{ const p=products.find(x=>x.id===ci.productId); if(p) p.stock=Math.max(0,p.stock-ci.quantity); });
+  saveProducts(products);
+  saveCart([]); cartCount=0;
+  LS.set('_lastOrder',order);
+
+  const app=document.getElementById('app');
+  app.innerHTML=`
+<div class="pad" style="text-align:center;padding-top:40px">
+  <i class="fas fa-clock" style="font-size:48px;color:var(--orange)"></i>
+  <h2 style="margin:16px 0 8px">等待支付</h2>
+  <p class="gray">订单号: ${order.outTradeNo}</p>
+  <p style="font-size:24px;font-weight:700;color:var(--red);margin:8px 0">${F(total)}</p>
+  <p style="font-size:13px;font-weight:600">${payChannel==='wechat'?'微信支付':'支付宝'}</p>
+
+  <div class="qr-box">
+    <div style="width:200px;height:200px;background:#f0f0f0;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px dashed var(--border)">
+      <i class="fab fa-${payChannel==='wechat'?'weixin':'alipay'}" style="font-size:48px;color:${payChannel==='wechat'?'var(--green)':'var(--blue)'}"></i>
+      <p class="gray" style="margin-top:8px">模拟${payChannel==='wechat'?'微信':'支付宝'}收款码</p>
+    </div>
+  </div>
+
+  <p class="gray" style="margin-bottom:20px">开发模式 · 点击下方按钮模拟支付成功</p>
+  <button class="btn btn-g btn-blk" onclick="mockPaySuccess('${order.id}')" style="margin-bottom:8px">💰 一键模拟支付成功</button>
+  <button class="btn btn-gray btn-blk" onclick="goBuyer('shop')">返回店铺</button>
+</div>`;
+  document.getElementById('nav-area').innerHTML='';
+}
+
+function mockPaySuccess(orderId){
+  const orders=getOrders();
+  const order=orders.find(o=>o.id===orderId);
+  if(order){ order.status='PAID'; order.paidAt=new Date().toISOString(); saveOrders(orders); LS.set('_lastOrder',order); }
+  toast('支付成功！'); setTimeout(()=>goBuyer('result'),500);
+}
+
+// ==================== BUYER: RESULT ====================
+function renderResult(app){
+  const order=LS.get('_lastOrder',null);
+  const isPaid=order&&order.status==='PAID';
+  let html=`
+<div class="pad" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;text-align:center">
+  <div style="width:80px;height:80px;border-radius:40px;background:${isPaid?'#f0fdf4':'#fff7ed'};display:flex;align-items:center;justify-content:center;margin-bottom:20px">
+    ${isPaid?'<i class="fas fa-check-circle" style="font-size:48px;color:var(--green)"></i>':'<i class="fas fa-clock" style="font-size:48px;color:var(--orange)"></i>'}
+  </div>
+  <h2>${isPaid?'支付成功！':'支付确认中'}</h2>
+  <p class="gray" style="margin-bottom:24px">${isPaid?'感谢购买，商家将尽快发货':'请稍候...'}</p>`;
+
+  if(order){
+    html+=`
+  <div class="card" style="width:100%;max-width:320px">
+    <div class="sp"><span class="l">订单号</span><span class="r" style="font-size:13px">${order.outTradeNo}</span></div>
+    <div class="sp"><span class="l">支付方式</span><span class="r">${order.paymentChannel==='wechat'?'微信支付':'支付宝'}</span></div>
+    <div class="sp"><span class="l">金额</span><span class="r" style="font-weight:700">${F(order.totalAmount)}</span></div>
+    <div class="sp"><span class="l">状态</span><span class="r"><span class="badge-s ${order.status}">${order.status==='PAID'?'已支付':'待付款'}</span></span></div>
+  </div>`;
+  }
+
+  html+=`
+  <div style="width:100%;max-width:320px;margin-top:20px">
+    <button class="btn btn-g btn-blk" onclick="goBuyer('shop')">继续购物</button>
+    <button class="btn btn-gray btn-blk" style="margin-top:8px" onclick="goBuyer('orders')">查看订单</button>
+  </div>
+</div>`;
+  app.innerHTML=html;
+}
+
+// ==================== BUYER: MY ORDERS ====================
+function renderBuyerOrders(app){
+  const orders=getOrders();
+  let html=`<div class="top-bar"><span class="title">📋 我的订单</span><span class="role-tag buyer">买家</span></div><div class="pad">`;
+
+  if(orders.length===0){
+    html+=`<div class="cen"><i class="fas fa-receipt"></i><p>暂无订单</p><button class="btn btn-g" onclick="goBuyer('shop')">去逛逛</button></div>`;
+  } else {
+    const sMap={PENDING:'待付款',PAID:'已付款',SHIPPED:'已发货',COMPLETED:'已完成',CANCELLED:'已取消',EXPIRED:'已过期'};
+    orders.forEach(o=>{
+      html+=`
+      <div class="card">
+        <div class="sp"><span class="l" style="font-size:12px">${o.outTradeNo}</span><span class="badge-s ${o.status}">${sMap[o.status]||o.status}</span></div>
+        <div style="margin:4px 0;font-size:13px;color:var(--text2)">${o.items.map(i=>i.name+'×'+i.quantity).join('，')}</div>
+        <div class="sp">
+          <span style="font-size:11px;color:var(--text2)">${o.paymentChannel==='wechat'?'微信':'支付宝'} · ${dt(o.createdAt)}</span>
+          <span style="font-weight:700">${F(o.totalAmount)}</span>
+        </div>
+      </div>`;
+    });
+  }
+  html+=`</div>`; app.innerHTML=html;
+}
+
+// ==================== SELLER: DASHBOARD ====================
+function renderSellerDashboard(app){
+  const orders=getOrders();
+  const paid=orders.filter(o=>o.status==='PAID');
+  const todayStart=new Date(); todayStart.setHours(0,0,0,0);
+  const monthStart=new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+  const today=paid.filter(o=>new Date(o.paidAt)>=todayStart).reduce((s,o)=>s+o.totalAmount,0);
+  const month=paid.filter(o=>new Date(o.paidAt)>=monthStart).reduce((s,o)=>s+o.totalAmount,0);
+  const totalR=paid.reduce((s,o)=>s+o.totalAmount,0);
+  const pending=orders.filter(o=>o.status==='PENDING').length;
+
+  let html=`
+<div class="top-bar"><span class="title">📊 商家后台</span><span class="role-tag seller">卖家</span></div>
+<div class="pad">
+  <div class="stat-grid">
+    <div class="stat-card"><div class="val">${F(today)}</div><div class="lbl">今日收入</div></div>
+    <div class="stat-card"><div class="val">${F(month)}</div><div class="lbl">本月收入</div></div>
+    <div class="stat-card"><div class="val">${F(totalR)}</div><div class="lbl">总收入</div></div>
+  </div>
+
+  <div class="stat-grid" style="margin-top:12px;grid-template-columns:repeat(3,1fr)">
+    <div class="stat-card"><div class="val" style="color:var(--text)">${getProducts().filter(p=>p.listed).length}</div><div class="lbl">在售商品</div></div>
+    <div class="stat-card"><div class="val" style="color:var(--blue)">${orders.length}</div><div class="lbl">总订单</div></div>
+    <div class="stat-card"><div class="val" style="color:var(--orange)">${pending}</div><div class="lbl">待付款</div></div>
+  </div>
+
+  <div class="act-bar">
+    <button class="btn btn-b btn-blk" onclick="goSeller('products')"><i class="fas fa-plus"></i> 管理商品</button>
+    <button class="btn btn-g btn-blk" onclick="goSeller('orders')"><i class="fas fa-list"></i> 查看订单</button>
+  </div>
+
+  <h3>📱 店铺入口二维码</h3>
+  <div class="card" style="text-align:center">
+    <div id="qrcode-s" style="display:flex;justify-content:center"></div>
+    <p class="gray" style="margin-top:12px;word-break:break-all" id="qr-url-s"></p>
+    <button class="btn btn-g btn-sm" style="margin-top:12px" onclick="downloadQR()">下载二维码</button>
+    <p class="gray" style="margin-top:8px">打印出来贴在店里，顾客扫码即进店</p>
+  </div>
+
+  <h3>📋 最近订单</h3>`;
+
+  orders.slice(0,5).forEach(o=>{
+    html+=`
+    <div class="card" style="font-size:13px">
+      <div class="sp"><span>${o.outTradeNo}</span><span class="badge-s ${o.status}">${o.status}</span></div>
+      <div style="color:var(--text2);margin:4px 0">${o.items?.map(i=>i.name+'×'+i.quantity).join('，')} | ${o.buyer||''}</div>
+      <div class="sp"><span style="color:var(--text2);font-size:11px">${o.paymentChannel==='wechat'?'微信':'支付宝'} · ${dt(o.createdAt)}</span><span style="font-weight:700">${F(o.totalAmount)}</span></div>
+    </div>`;
+  });
+
+  html+=`</div>`;
+  app.innerHTML=html;
+
+  setTimeout(()=>{
+    const qrUrl=window.location.href.replace(/#.*$/,'')+'#shop';
+    const c=document.getElementById('qrcode-s');
+    const u=document.getElementById('qr-url-s');
+    if(c){ c.innerHTML='';
+      try{ QRCode.toCanvas(document.createElement('canvas'),qrUrl,{width:200,margin:2},(err,canvas)=>{if(!err)c.appendChild(canvas);}); }catch(e){}
+    }
+    if(u) u.textContent=qrUrl;
+  },100);
+}
+
+// ==================== SELLER: PRODUCTS ====================
+function renderSellerProducts(app){
+  const products=getProducts();
+  let html=`
+<div class="top-bar"><span class="title">📦 商品管理</span><span class="role-tag seller">卖家</span></div>
+<div class="pad">
+  <div class="card">
+    <h3>➕ 添加新商品</h3>
+    <input class="inp" id="sf-name" placeholder="商品名称 *">
+    <input class="inp" id="sf-price" type="number" step="0.01" placeholder="价格（元）*">
+    <input class="inp" id="sf-stock" type="number" placeholder="库存数量">
+    <input class="inp" id="sf-img" placeholder="图片URL">
+    <input class="inp" id="sf-desc" placeholder="商品描述">
+    <button class="btn btn-g btn-blk" onclick="sellerAddProduct()">上架商品</button>
+  </div>
+
+  <h3>商品列表 (${products.length})</h3>`;
+
+  products.forEach(p=>{
+    html+=`
+    <div class="sprod-row">
+      <img src="${p.image}" alt="${p.name}" onerror="this.style.display='none'">
+      <div class="info">
+        <h4>${p.name} ${p.listed?'':'<span style="color:var(--text2);font-size:11px">(已下架)</span>'}</h4>
+        <p>${F(p.price)} | 库存: ${p.stock} | ${p.desc||''}</p>
+      </div>
+      <button style="border:none;background:none;color:var(--red);cursor:pointer;font-size:16px" onclick="sellerDelProduct('${p.id}')"><i class="fas fa-trash"></i></button>
+    </div>`;
+  });
+
+  html+=`</div>`; app.innerHTML=html;
+}
+
+function sellerAddProduct(){
+  const name=document.getElementById('sf-name')?.value.trim();
+  const price=parseFloat(document.getElementById('sf-price')?.value);
+  const stock=parseInt(document.getElementById('sf-stock')?.value)||0;
+  const image=document.getElementById('sf-img')?.value.trim();
+  const desc=document.getElementById('sf-desc')?.value.trim();
+  if(!name||!price||price<=0){toast('商品名称和价格不能为空','err');return;}
+  if(!image){toast('请输入图片URL','err');return;}
+  const products=getProducts();
+  products.unshift({id:uid(),name,price:Math.round(price*100),stock,image,desc:desc||'',listed:true,createdAt:new Date().toISOString()});
+  saveProducts(products);
+  toast('商品已上架: '+name);
+  goSeller('products');
+}
+
+function sellerDelProduct(id){
+  if(!confirm('确定删除？'))return;
+  saveProducts(getProducts().filter(p=>p.id!==id));
+  toast('已删除');
+  goSeller('products');
+}
+
+// ==================== SELLER: ORDERS ====================
+function renderSellerOrders(app){
+  const orders=getOrders();
+  let html=`<div class="top-bar"><span class="title">📋 全部订单</span><span class="role-tag seller">卖家</span></div><div class="pad">`;
+
+  if(orders.length===0){
+    html+=`<div class="cen"><i class="fas fa-receipt"></i><p>暂无订单</p></div>`;
+  } else {
+    const sMap={PENDING:'待付款',PAID:'已付款',SHIPPED:'已发货',COMPLETED:'已完成',CANCELLED:'已取消',EXPIRED:'已过期'};
+    orders.forEach(o=>{
+      html+=`
+      <div class="card" style="font-size:13px">
+        <div class="sp"><span style="font-size:12px;color:var(--text2)">${o.outTradeNo}</span><span class="badge-s ${o.status}">${sMap[o.status]||o.status}</span></div>
+        <div style="color:var(--text2);margin:4px 0">${o.items?.map(i=>i.name+'×'+i.quantity).join('，')||''}</div>
+        <div style="font-size:11px;color:var(--text2)">买家: ${o.buyer||'未知'} | ${o.paymentChannel==='wechat'?'微信':'支付宝'} | ${dt(o.createdAt)}</div>
+        <div class="sp"><span></span><span style="font-weight:700;font-size:16px">${F(o.totalAmount)}</span></div>
+        ${o.status==='PAID'?`<button class="btn btn-g btn-sm" style="margin-top:8px;width:100%" onclick="shipOrder('${o.id}')">📦 标记已发货</button>`:''}
+        ${o.status==='SHIPPED'?`<button class="btn btn-b btn-sm" style="margin-top:8px;width:100%" onclick="completeOrder('${o.id}')">✅ 标记已完成</button>`:''}
+      </div>`;
+    });
+  }
+  html+=`</div>`; app.innerHTML=html;
+}
+
+function shipOrder(id){
+  const orders=getOrders();
+  const o=orders.find(x=>x.id===id);
+  if(o){ o.status='SHIPPED'; saveOrders(orders); toast('已标记发货'); goSeller('orders'); }
+}
+
+function completeOrder(id){
+  const orders=getOrders();
+  const o=orders.find(x=>x.id===id);
+  if(o){ o.status='COMPLETED'; saveOrders(orders); toast('订单已完成'); goSeller('orders'); }
+}
+
+// ==================== HASH ROUTING ====================
+function handleHash(){
+  const h=window.location.hash.slice(1);
+  const user=getUser();
+  if(!user){ role=''; render(); return; }
+  if(h==='admin'||h==='seller'){ switchRole('seller'); }
+  else if(h==='shop'||h==='cart'||h==='orders'||h==='checkout'||h==='result'||h==='login'){ switchRole('buyer'); if(h!=='login'&&h!=='result') buyerPage=h; }
+  else { switchRole(role||'buyer'); }
+}
+
+window.addEventListener('hashchange',handleHash);
+if(!getUser()){ role=''; render(); } else { role='buyer'; buyerPage='shop'; render(); }
+</script>
+</body>
+</html>

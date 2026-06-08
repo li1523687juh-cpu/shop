@@ -1,0 +1,62 @@
+// Prisma Schema — 一码多付电商系统
+// 所有金额字段使用 Int 存储「分」，避免浮点数精度问题
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// --- 商品表 ---
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  price       Int                      // 价格（分）
+  stock       Int                      // 库存（件）
+  imageUrl    String                   // 商品图片 URL
+  description String   @default("")    // 商品描述
+  isListed    Boolean  @default(true)  // 是否上架
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orderItems  OrderItem[]
+
+  @@map("products")
+}
+
+// --- 订单表 ---
+model Order {
+  id             String      @id @default(cuid())
+  outTradeNo     String      @unique      // 商户订单号（幂等键，格式: OTN-时间戳-随机数）
+  totalAmount    Int                      // 总金额（分）
+  status         String      @default("PENDING")  // PENDING | PAID | SHIPPED | COMPLETED | CANCELLED | EXPIRED
+  paymentChannel String                    // wechat | alipay
+  paidAt         DateTime?                // 支付完成时间
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  items          OrderItem[]
+
+  @@index([outTradeNo])
+  @@index([status])
+  @@map("orders")
+}
+
+// --- 订单项表 ---
+model OrderItem {
+  id           String   @id @default(cuid())
+  orderId       String
+  productId     String
+  productName   String                  // 快照：下单时商品名
+  productImage  String                  // 快照：下单时图片
+  quantity      Int
+  price         Int                     // 下单时单价（分）
+
+  order         Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product       Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}

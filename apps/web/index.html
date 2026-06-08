@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>一码多付 - 店铺</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --primary: #07c160;
+      --primary-dark: #06ad56;
+      --alipay: #1677ff;
+      --danger: #ee0a24;
+      --warning: #ff976a;
+      --bg: #f5f5f5;
+      --card: #ffffff;
+      --text: #333333;
+      --text-secondary: #999999;
+      --border: #ebedf0;
+      --radius: 12px;
+      --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 70px;
+    }
+    /* Toast */
+    .toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+    .toast { padding: 12px 24px; border-radius: 8px; background: #333; color: #fff; font-size: 14px; white-space: nowrap; animation: slideDown 0.3s ease; }
+    .toast.success { background: var(--primary); }
+    .toast.error { background: var(--danger); }
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+    /* Bottom Nav */
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 60px; background: var(--card); border-top: 1px solid var(--border); display: flex; justify-content: space-around; align-items: center; z-index: 100; }
+    .bottom-nav a { display: flex; flex-direction: column; align-items: center; color: var(--text-secondary); text-decoration: none; font-size: 11px; gap: 2px; }
+    .bottom-nav a.active { color: var(--primary); }
+    .bottom-nav a i { font-size: 20px; }
+    .cart-badge { position: relative; }
+    .cart-badge span { position: absolute; top: -6px; right: -10px; background: var(--danger); color: #fff; font-size: 10px; min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+    /* Buttons */
+    .btn { display: inline-block; padding: 12px 24px; border-radius: 8px; border: none; font-size: 16px; cursor: pointer; transition: all 0.2s; text-decoration: none; text-align: center; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-alipay { background: var(--alipay); color: #fff; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-block { display: block; width: 100%; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+</html>
