@@ -200,8 +200,6 @@ function render(){
     <div id="seller-nav">
       <a href="#" class="${sellerPage==='dashboard'?'ac':''}" onclick="goSeller('dashboard');return false"><i class="fas fa-chart-line"></i>数据</a>
       <a href="#" class="${sellerPage==='products'?'ac':''}" onclick="goSeller('products');return false"><i class="fas fa-boxes"></i>商品</a>
-      <a href="#" class="${sellerPage==='orders'?'ac':''}" onclick="goSeller('orders');return false"><i class="fas fa-receipt"></i>订单</a>
-      <a href="#" onclick="goLogin();return false"><i class="fas fa-sign-out-alt"></i>退出</a>
     </div>`;
     app.style.paddingBottom='65px';
     switch(sellerPage){
@@ -220,7 +218,6 @@ function render(){
       <a href="#" class="badge ${buyerPage==='cart'?'ac':''}" onclick="goBuyer('cart');return false">
         <i class="fas fa-shopping-cart"></i>${cartCount>0?`<em>${cartCount}</em>`:''}<span>购物车</span></a>
       <a href="#" class="${buyerPage==='orders'?'ac':''}" onclick="goBuyer('orders');return false"><i class="fas fa-receipt"></i>订单</a>
-      <a href="#" onclick="goLogin();return false"><i class="fas fa-sign-out-alt"></i>退出</a>
     </div>`;
     switch(buyerPage){
       case 'shop': renderShop(app); break;
