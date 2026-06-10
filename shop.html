@@ -781,9 +781,15 @@ function handleHash(){
     return;
   }
 
-  // 已登录：根据 hash 切换
-  if(h==='admin'||h==='seller'){ switchRole('seller'); }
-  else if(h==='shop'||h==='cart'||h==='orders'||h==='checkout'||h==='result'||h==='login'){ switchRole('buyer'); if(h!=='login'&&h!=='result') buyerPage=h; }
+  // 已登录：根据 hash 切换到对应角色（跨角色时清除旧身份）
+  if(h==='admin'||h==='seller'){
+    if(user.channel!=='seller'){ saveUser(null); role=''; _loginMode='seller'; render(); return; }
+    switchRole('seller');
+  }
+  else if(h==='shop'||h==='cart'||h==='orders'||h==='checkout'||h==='result'){
+    if(user.channel==='seller'){ saveUser(null); role=''; _loginMode='buyer'; render(); return; }
+    switchRole('buyer'); if(h!=='result') buyerPage=h;
+  }
   else { switchRole(role||'buyer'); }
 }
 
@@ -791,10 +797,16 @@ window.addEventListener('hashchange',handleHash);
 
 // 初始加载：根据 hash 决定
 const _initHash = window.location.hash.slice(1);
-if(_initHash==='admin'||_initHash==='seller'){ _loginMode='seller'; }
-else if(_initHash==='login'){ _loginMode='all'; }
-else { _loginMode='buyer'; }
-if(!getUser()){ role=''; render(); } else { role='buyer'; buyerPage='shop'; render(); }
+if(_initHash==='admin'||_initHash==='seller'){
+  _loginMode='seller';
+  const u = getUser();
+  if(!u){ role=''; render(); }
+  else if(u.channel==='seller'){ role='seller'; sellerPage='dashboard'; render(); }
+  else { saveUser(null); role=''; render(); } // 之前是买家，清掉重新登录卖家
+} else {
+  _loginMode='buyer';
+  if(!getUser()){ role=''; render(); } else { role='buyer'; buyerPage='shop'; render(); }
+}
 </script>
 </body>
 </html>
