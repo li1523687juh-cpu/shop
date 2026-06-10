@@ -159,6 +159,10 @@ function getCart(){ return LS.get('cart',[]); }
 function saveCart(c){ LS.set('cart',c); }
 function getOrders(){ return LS.get('orders',[]); }
 function saveOrders(o){ LS.set('orders',o); }
+function getFavs(){ return LS.get('favs',[]); }
+function saveFavs(f){ LS.set('favs',f); }
+function toggleFav(pid){ const f=getFavs(); const i=f.indexOf(pid); if(i>-1) f.splice(i,1); else f.push(pid); saveFavs(f); }
+function isFav(pid){ return getFavs().includes(pid); }
 function getUser(){ return LS.get('user',null); }
 function saveUser(u){ LS.set('user',u); }
 
@@ -219,7 +223,7 @@ function render(){
       <a href="#" class="${buyerPage==='shop'?'ac':''}" onclick="goBuyer('shop');return false"><i class="fas fa-store"></i>店铺</a>
       <a href="#" class="badge ${buyerPage==='cart'?'ac':''}" onclick="goBuyer('cart');return false">
         <i class="fas fa-shopping-cart"></i>${cartCount>0?`<em>${cartCount}</em>`:''}<span>购物车</span></a>
-      <a href="#" class="${buyerPage==='orders'?'ac':''}" onclick="goBuyer('orders');return false"><i class="fas fa-receipt"></i>订单</a>
+      <a href="#" class="${buyerPage==='profile'?'ac':''}" onclick="goBuyer('profile');return false"><i class="fas fa-user"></i>我的</a>
     </div>`;
     switch(buyerPage){
       case 'shop': renderShop(app); break;
@@ -228,6 +232,8 @@ function render(){
       case 'result': renderResult(app); break;
       case 'orders': renderBuyerOrders(app); break;
       case 'detail': renderDetail(app); break;
+      case 'profile': renderProfile(app); break;
+      case 'favs': renderFavs(app); break;
     }
   }
   window.scrollTo(0,0);
@@ -341,11 +347,14 @@ function renderShop(app){
   } else {
     html+=`<div class="pgrid">`;
     products.forEach(p=>{
+      const favd = isFav(p.id);
       html+=`
       <div class="pcard">
         <div class="pimg" style="cursor:pointer" onclick="goDetail('${p.id}')">
           <img src="${p.image}" alt="${p.name}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22 fill=%22%23eee%22><rect width=%22200%22 height=%22200%22/><text x=%2230%22 y=%22110%22 fill=%22%23999%22>暂无</text></svg>'">
           ${p.stock<=0?'<div class="soldout">售罄</div>':''}
+          <button onclick="event.stopPropagation();toggleFav('${p.id}');render();" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.35);border:none;color:${favd?'#ff4757':'#fff'};font-size:${favd?'16px':'14px'};width:28px;height:28px;border-radius:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2">
+            <i class="${favd?'fas':'far'} fa-heart"></i></button>
         </div>
         <div class="pinfo">
           <h3 style="cursor:pointer" onclick="goDetail('${p.id}')">${p.name}</h3>
@@ -659,6 +668,153 @@ function renderBuyerOrders(app){
     });
   }
   html+=`</div>`; app.innerHTML=html;
+}
+
+// ==================== BUYER: PROFILE ====================
+function renderProfile(app){
+  const orders = getOrders();
+  const user = getUser();
+  const favs = getFavs();
+  const favProducts = getProducts().filter(p => favs.includes(p.id) && p.listed);
+
+  // 各状态统计
+  const cnt = (s) => orders.filter(o => o.status === s).length;
+  const pending = cnt('PENDING');
+  const paid = cnt('PAID');
+  const shipped = cnt('SHIPPED');
+  const completed = cnt('COMPLETED');
+
+  app.innerHTML = `
+  <div class="pad">
+    <!-- 用户头部 -->
+    <div style="text-align:center;padding:24px 0 16px">
+      <div style="width:60px;height:60px;border-radius:30px;background:${user?.channel==='wechat'?'var(--green)':user?.channel==='alipay'?'var(--blue)':'#ddd'};display:flex;align-items:center;justify-content:center;margin:0 auto 10px;font-size:28px;color:#fff">
+        <i class="fab fa-${user?.channel==='wechat'?'weixin':user?.channel==='alipay'?'alipay':'user'}"></i>
+      </div>
+      <h3 style="margin:0">${user?.name||'用户'}</h3>
+      <p style="color:var(--text2);font-size:12px">${user?.channel==='wechat'?'微信用户':user?.channel==='alipay'?'支付宝用户':'已登录'}</p>
+    </div>
+
+    <!-- 订单状态卡 -->
+    <div class="card" style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <h3 style="margin:0">📋 我的订单</h3>
+        <button class="btn btn-sm" style="background:#f5f5f5;font-size:12px;padding:5px 12px" onclick="goBuyer('orders')">查看全部 <i class="fas fa-angle-right"></i></button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;text-align:center">
+        <div onclick="goBuyer('orders')" style="cursor:pointer">
+          <div style="font-size:20px;color:var(--orange);margin-bottom:4px"><i class="fas fa-wallet"></i></div>
+          <div style="font-size:11px;font-weight:600;color:var(--text)">待付款</div>
+          <div style="font-size:14px;font-weight:700;color:${pending>0?'var(--red)':'var(--text2)'};margin-top:2px">${pending}</div>
+        </div>
+        <div onclick="goBuyer('orders')" style="cursor:pointer">
+          <div style="font-size:20px;color:var(--blue);margin-bottom:4px"><i class="fas fa-box"></i></div>
+          <div style="font-size:11px;font-weight:600;color:var(--text)">待发货</div>
+          <div style="font-size:14px;font-weight:700;color:${paid>0?'var(--red)':'var(--text2)'};margin-top:2px">${paid}</div>
+        </div>
+        <div onclick="goBuyer('orders')" style="cursor:pointer">
+          <div style="font-size:20px;color:var(--green);margin-bottom:4px"><i class="fas fa-truck"></i></div>
+          <div style="font-size:11px;font-weight:600;color:var(--text)">待收货</div>
+          <div style="font-size:14px;font-weight:700;color:${shipped>0?'var(--red)':'var(--text2)'};margin-top:2px">${shipped}</div>
+        </div>
+        <div onclick="goBuyer('orders')" style="cursor:pointer">
+          <div style="font-size:20px;color:var(--primary);margin-bottom:4px"><i class="fas fa-star"></i></div>
+          <div style="font-size:11px;font-weight:600;color:var(--text)">待评价</div>
+          <div style="font-size:14px;font-weight:700;color:${completed>0?'var(--red)':'var(--text2)'};margin-top:2px">${completed}</div>
+        </div>
+        <div onclick="goBuyer('orders')" style="cursor:pointer">
+          <div style="font-size:20px;color:var(--text2);margin-bottom:4px"><i class="fas fa-undo-alt"></i></div>
+          <div style="font-size:11px;font-weight:600;color:var(--text)">售后</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text2);margin-top:2px">0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 快捷入口 -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
+      <div class="card" style="text-align:center;cursor:pointer" onclick="goBuyer('cart')">
+        <i class="fas fa-shopping-cart" style="font-size:24px;color:var(--green);margin-bottom:6px"></i>
+        <p style="font-size:13px;font-weight:600">购物车</p>
+        ${getCart().length>0?`<p style="font-size:12px;color:var(--red)">${getCart().length}件</p>`:''}
+      </div>
+      <div class="card" style="text-align:center;cursor:pointer" onclick="goBuyer('favs')">
+        <i class="fas fa-heart" style="font-size:24px;color:#ff4757;margin-bottom:6px"></i>
+        <p style="font-size:13px;font-weight:600">收藏商品</p>
+        <p style="font-size:12px;color:var(--text2)">${favs.length}件</p>
+      </div>
+      <div class="card" style="text-align:center;cursor:pointer" onclick="goBuyer('orders')">
+        <i class="fas fa-receipt" style="font-size:24px;color:var(--orange);margin-bottom:6px"></i>
+        <p style="font-size:13px;font-weight:600">全部订单</p>
+        <p style="font-size:12px;color:var(--text2)">${orders.length}笔</p>
+      </div>
+    </div>
+
+    <!-- 收藏商品预览 -->
+    ${favProducts.length > 0 ? `
+    <h3 style="margin-bottom:8px">❤️ 收藏的商品</h3>
+    <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:8px">
+      ${favProducts.slice(0,6).map(p => `
+      <div style="min-width:120px;background:var(--card);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);cursor:pointer" onclick="goDetail('${p.id}')">
+        <div style="width:100%;padding-top:100%;position:relative;background:#f0f0f0">
+          <img src="${p.image}" alt="${p.name}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">
+        </div>
+        <div style="padding:8px">
+          <p style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}</p>
+          <p style="font-size:13px;font-weight:700;color:var(--red)">${F(p.price)}</p>
+        </div>
+      </div>`).join('')}
+    </div>
+    ` : ''}
+
+    <!-- 最近订单 -->
+    <h3 style="margin-top:16px">📋 最近订单</h3>
+    ${orders.slice(0,5).map(o => {
+      const sMap = {PENDING:'待付款',PAID:'待发货',SHIPPED:'待收货',COMPLETED:'已完成',CANCELLED:'已取消',EXPIRED:'已过期'};
+      return `
+      <div class="card" style="font-size:13px">
+        <div class="sp"><span style="font-size:12px;color:var(--text2)">${o.outTradeNo}</span><span class="badge-s ${o.status}">${sMap[o.status]||o.status}</span></div>
+        <div style="color:var(--text2);margin:4px 0">${o.items.map(i=>i.name+'×'+i.quantity).join('，')}</div>
+        <div class="sp"><span style="font-size:11px;color:var(--text2)">${o.paymentChannel==='wechat'?'微信':'支付宝'} · ${dt(o.createdAt)}</span><span style="font-weight:700">${F(o.totalAmount)}</span></div>
+      </div>`;
+    }).join('')}
+    ${orders.length===0?'<div class="cen" style="padding:20px"><p style="font-size:13px">暂无订单</p></div>':''}
+  </div>`;
+}
+
+function renderFavs(app){
+  const favs = getFavs();
+  const products = getProducts().filter(p => favs.includes(p.id) && p.listed);
+
+  let html = `<div class="pad">
+    <div class="top-bar" style="position:static"><span class="title">❤️ 收藏商品</span></div>`;
+
+  if(products.length === 0){
+    html += `<div class="cen"><i class="far fa-heart"></i><p>暂无收藏</p><button class="btn btn-g" onclick="goBuyer('shop')">去逛逛</button></div>`;
+  } else {
+    html += `<div class="pgrid">`;
+    products.forEach(p => {
+      html += `
+      <div class="pcard">
+        <div class="pimg" style="cursor:pointer" onclick="goDetail('${p.id}')">
+          <img src="${p.image}" alt="${p.name}" onerror="this.src=''">
+          ${p.stock<=0?'<div class="soldout">售罄</div>':''}
+          <button onclick="event.stopPropagation();toggleFav('${p.id}');goBuyer('favs')" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.35);border:none;color:#ff4757;font-size:14px;width:28px;height:28px;border-radius:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2">
+            <i class="fas fa-heart"></i></button>
+        </div>
+        <div class="pinfo">
+          <h3 style="cursor:pointer" onclick="goDetail('${p.id}')">${p.name}</h3>
+          <div class="pr">${F(p.price)}</div>
+          <div class="sk">库存: ${p.stock}</div>
+          <button class="btn btn-g" style="margin-top:auto;font-size:13px;padding:8px 0;width:100%"
+            ${p.stock<=0?'disabled':''}
+            onclick="event.stopPropagation();buyerAddCart('${p.id}')"><i class="fas fa-cart-plus"></i> 加入购物车</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+  html += `</div>`;
+  app.innerHTML = html;
 }
 
 // ==================== SELLER: DASHBOARD ====================
