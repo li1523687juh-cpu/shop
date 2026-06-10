@@ -181,7 +181,9 @@ let buyerPage='shop';
 let sellerPage='dashboard';
 let cartCount=0;
 
+let _detailPid = '';
 function goBuyer(p){ buyerPage=p; role='buyer'; render(); }
+function goDetail(pid){ _detailPid=pid; buyerPage='detail'; role='buyer'; render(); }
 function goSeller(p){ sellerPage=p; role='seller'; render(); }
 function goLogin(){ role=''; saveUser(null); _loginMode='all'; render(); }
 function switchRole(r){ role=r; if(r==='buyer') buyerPage='shop'; else sellerPage='dashboard'; render(); }
@@ -225,6 +227,7 @@ function render(){
       case 'checkout': renderCheckout(app); break;
       case 'result': renderResult(app); break;
       case 'orders': renderBuyerOrders(app); break;
+      case 'detail': renderDetail(app); break;
     }
   }
   window.scrollTo(0,0);
@@ -340,17 +343,17 @@ function renderShop(app){
     products.forEach(p=>{
       html+=`
       <div class="pcard">
-        <div class="pimg">
+        <div class="pimg" style="cursor:pointer" onclick="goDetail('${p.id}')">
           <img src="${p.image}" alt="${p.name}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22 fill=%22%23eee%22><rect width=%22200%22 height=%22200%22/><text x=%2230%22 y=%22110%22 fill=%22%23999%22>暂无</text></svg>'">
           ${p.stock<=0?'<div class="soldout">售罄</div>':''}
         </div>
         <div class="pinfo">
-          <h3>${p.name}</h3>
+          <h3 style="cursor:pointer" onclick="goDetail('${p.id}')">${p.name}</h3>
           <div class="pr">${F(p.price)}</div>
           <div class="sk">库存: ${p.stock}</div>
           <button class="btn btn-g" style="margin-top:auto;font-size:13px;padding:8px 0;width:100%"
             ${p.stock<=0?'disabled':''}
-            onclick="buyerAddCart('${p.id}')"><i class="fas fa-cart-plus"></i> 加入购物车</button>
+            onclick="event.stopPropagation();buyerAddCart('${p.id}')"><i class="fas fa-cart-plus"></i> 加入购物车</button>
         </div>
       </div>`;
     });
@@ -403,6 +406,55 @@ function buyerAddCart(pid){
 }
 
 // ==================== BUYER: CART ====================
+// ==================== BUYER: PRODUCT DETAIL ====================
+function renderDetail(app){
+  const products = getProducts();
+  const product = products.find(p => p.id === _detailPid);
+  if(!product){ goBuyer('shop'); return; }
+
+  app.innerHTML = `
+  <div class="pad">
+    <button class="btn btn-sm" style="background:#f5f5f5;margin-bottom:12px" onclick="goBuyer('shop')">
+      <i class="fas fa-arrow-left"></i> 返回
+    </button>
+
+    <!-- 大图 -->
+    <div style="width:100%;padding-top:100%;position:relative;border-radius:var(--radius);overflow:hidden;background:#f0f0f0;margin-bottom:16px">
+      <img src="${product.image}" alt="${product.name}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover"
+        onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22400%22 fill=%22%23eee%22><rect width=%22400%22 height=%22400%22/><text x=%22100%22 y=%22220%22 fill=%22%23999%22>暂无图片</text></svg>'">
+      ${product.stock<=0?'<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:20px">已售罄</div>':''}
+    </div>
+
+    <!-- 商品信息 -->
+    <div class="card">
+      <h2 style="font-size:22px;font-weight:700;margin-bottom:8px;padding:0">${product.name}</h2>
+      <div style="font-size:28px;font-weight:700;color:var(--red);margin-bottom:12px">${F(product.price)}</div>
+      <div class="sp" style="border-top:1px solid var(--border);padding-top:12px">
+        <span class="l">库存</span>
+        <span class="r" style="color:${product.stock<=0?'var(--red)':'var(--green)'}">${product.stock<=0?'已售罄':'剩余 '+product.stock+' 件'}</span>
+      </div>
+      ${product.desc ? `
+      <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
+        <p style="font-size:13px;color:var(--text2);font-weight:600;margin-bottom:4px">商品描述</p>
+        <p style="font-size:14px;line-height:1.7;color:var(--text)">${product.desc}</p>
+      </div>` : ''}
+    </div>
+
+    <!-- 底部购买栏 -->
+    <div style="position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:12px;z-index:99">
+      <button class="btn" style="background:#f5f5f5;font-size:20px;padding:12px 16px" onclick="goBuyer('cart')">
+        <i class="fas fa-shopping-cart"></i>
+      </button>
+      <button class="btn btn-g btn-lg" style="flex:1;font-size:16px;padding:14px 0"
+        ${product.stock<=0?'disabled':''}
+        onclick="buyerAddCart('${product.id}');goBuyer('cart')">
+        ${product.stock<=0?'已售罄':'加入购物车'}
+      </button>
+    </div>
+    <div style="height:80px"></div>
+  </div>`;
+}
+
 function renderCart(app){
   const cart=getCart();
   cartCount=cart.reduce((s,i)=>s+i.quantity,0);
