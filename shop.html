@@ -682,14 +682,18 @@ function renderSellerDashboard(app){
     </div>
 
     <!-- 柱状图 -->
-    <div style="display:flex;align-items:flex-end;gap:${_chartDays===30?'2px':'6px'};height:140px;padding:0 4px;overflow-x:auto">
-      ${dailyData.map((d,i) => `
-      <div style="flex:1;min-width:${_chartDays===30?'18px':'32px'};display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end">
-        <span style="font-size:10px;color:var(--green);font-weight:600;margin-bottom:2px">${d.amount>0?F(d.amount).replace('¥',''):''}</span>
-        <div style="width:100%;background:${barColor(i)};border-radius:4px 4px 0 0;height:${Math.max(d.amount/maxAmount*100,2)}%;min-height:4px;position:relative" title="${d.label}: ${F(d.amount)} · ${d.count}单"></div>
-        <span style="font-size:${_chartDays===30?'8px':'10px'};color:var(--text2);margin-top:6px;white-space:nowrap">${_chartDays===30?(i%3===0?d.label:''):d.label}</span>
+    <div style="overflow-x:auto;padding-bottom:6px">
+      <div style="display:flex;align-items:flex-end;gap:${_chartDays===30?'1px':'6px'};height:140px;min-width:${_chartDays===30?'900px':'auto'};padding:0 2px">
+        ${dailyData.map((d,i) => {
+          const w = _chartDays===30 ? '30px' : (100/dailyData.length+'%');
+          return `
+          <div style="flex:1;min-width:${w};max-width:${w};display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end">
+            <span style="font-size:9px;color:var(--green);font-weight:600;margin-bottom:2px;white-space:nowrap">${d.amount>0?F(d.amount).replace('¥',''):''}</span>
+            <div style="width:70%;max-width:28px;background:${barColor(i)};border-radius:3px 3px 0 0;height:${Math.max(d.amount/maxAmount*100,3)}%;min-height:4px" title="${d.label}: ${F(d.amount)} · ${d.count}单"></div>
+            <span style="font-size:9px;color:var(--text2);margin-top:6px;white-space:nowrap">${_chartDays===30?d.label:d.label}</span>
+          </div>`;
+        }).join('')}
       </div>
-      `).join('')}
     </div>
 
     <!-- 数据列表 -->
