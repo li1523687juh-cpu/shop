@@ -183,7 +183,7 @@ let cartCount=0;
 
 function goBuyer(p){ buyerPage=p; role='buyer'; render(); }
 function goSeller(p){ sellerPage=p; role='seller'; render(); }
-function goLogin(){ role=''; saveUser(null); render(); }
+function goLogin(){ role=''; saveUser(null); _loginMode='all'; render(); }
 function switchRole(r){ role=r; if(r==='buyer') buyerPage='shop'; else sellerPage='dashboard'; render(); }
 
 function render(){
@@ -191,7 +191,7 @@ function render(){
   const nav=document.getElementById('nav-area');
   const user=getUser();
 
-  if(!user){ renderLogin(app); nav.innerHTML=''; return; }
+  if(!user){ renderLogin(app, _loginMode); nav.innerHTML=''; return; }
 
   if(role==='seller'){
     document.body.className='seller';
@@ -200,8 +200,6 @@ function render(){
     <div id="seller-nav">
       <a href="#" class="${sellerPage==='dashboard'?'ac':''}" onclick="goSeller('dashboard');return false"><i class="fas fa-chart-line"></i>数据</a>
       <a href="#" class="${sellerPage==='products'?'ac':''}" onclick="goSeller('products');return false"><i class="fas fa-boxes"></i>商品</a>
-      <a href="#" class="${sellerPage==='orders'?'ac':''}" onclick="goSeller('orders');return false"><i class="fas fa-receipt"></i>订单</a>
-      <a href="#" onclick="goLogin();return false"><i class="fas fa-sign-out-alt"></i>退出</a>
     </div>`;
     app.style.paddingBottom='65px';
     switch(sellerPage){
@@ -220,7 +218,6 @@ function render(){
       <a href="#" class="badge ${buyerPage==='cart'?'ac':''}" onclick="goBuyer('cart');return false">
         <i class="fas fa-shopping-cart"></i>${cartCount>0?`<em>${cartCount}</em>`:''}<span>购物车</span></a>
       <a href="#" class="${buyerPage==='orders'?'ac':''}" onclick="goBuyer('orders');return false"><i class="fas fa-receipt"></i>订单</a>
-      <a href="#" onclick="goLogin();return false"><i class="fas fa-sign-out-alt"></i>退出</a>
     </div>`;
     switch(buyerPage){
       case 'shop': renderShop(app); break;
@@ -234,10 +231,55 @@ function render(){
 }
 
 // ==================== LOGIN ====================
-function renderLogin(app){
+// mode: 'buyer' | 'seller' | 'all' — 控制显示哪些登录选项
+function renderLogin(app, mode='all'){
   document.body.className='';
   app.style.paddingBottom='0';
-  app.innerHTML = `
+
+  if(mode==='buyer'){
+    // ===== 买家专属登录 =====
+    app.innerHTML = `
+<div class="login-box">
+  <div style="text-align:center;padding:60px 0 40px">
+    <div style="font-size:56px;margin-bottom:12px">🛍️</div>
+    <h2 style="font-size:24px;margin-bottom:4px">欢迎光临</h2>
+    <p style="color:var(--text2);margin-bottom:4px">选择登录方式进入店铺</p>
+  </div>
+  <button class="login-role-btn wx" onclick="doLogin('wechat')">
+    <i class="fab fa-weixin"></i> 微信登录
+  </button>
+  <button class="login-role-btn ali" onclick="doLogin('alipay')">
+    <i class="fab fa-alipay"></i> 支付宝登录
+  </button>
+  <p style="text-align:center;color:var(--text2);font-size:12px;margin-top:20px">点击直接登录 · 无需注册</p>
+</div>`;
+  } else if(mode==='seller'){
+    // ===== 卖家专属登录 =====
+    app.innerHTML = `
+<div class="login-box">
+  <div style="text-align:center;padding:60px 0 40px">
+    <div style="font-size:56px;margin-bottom:12px">⚙️</div>
+    <h2 style="font-size:24px;margin-bottom:4px">商家管理后台</h2>
+    <p style="color:var(--text2);margin-bottom:20px">请输入管理密码</p>
+    <input type="password" id="seller-pw" class="inp" style="max-width:280px;margin:0 auto 16px;display:block" placeholder="请输入管理员密码" onkeydown="if(event.key==='Enter')doSellerPw()">
+    <button class="login-role-btn seller" onclick="doSellerPw()">
+      <i class="fas fa-lock"></i> 进入管理后台
+    </button>
+    <p style="text-align:center;color:var(--text2);font-size:12px;margin-top:16px">密码: admin123</p>
+  </div>
+</div>`;
+    // 存储密码输入函数到全局
+    window.doSellerPw = function(){
+      const pw = document.getElementById('seller-pw')?.value;
+      if(pw==='admin123'){
+        saveUser({channel:'seller',name:'商家管理员',id:'seller_001',loginAt:new Date().toISOString()});
+        toast('商家登录成功');
+        switchRole('seller');
+      } else { toast('密码错误','err'); }
+    };
+  } else {
+    // ===== 完整登录页（两栏） =====
+    app.innerHTML = `
 <div class="login-box">
   <div style="text-align:center;padding:40px 0 30px">
     <div style="font-size:56px;margin-bottom:12px">🛍️</div>
@@ -261,6 +303,7 @@ function renderLogin(app){
 
   <p style="text-align:center;color:var(--text2);font-size:12px;margin-top:20px">模拟登录，点击即登 · 买家密码直接进入</p>
 </div>`;
+  }
 }
 
 function doLogin(type){
@@ -722,16 +765,35 @@ function completeOrder(id){
 }
 
 // ==================== HASH ROUTING ====================
+let _loginMode='buyer'; // hash 决定进入哪个登录页
+
 function handleHash(){
   const h=window.location.hash.slice(1);
   const user=getUser();
-  if(!user){ role=''; render(); return; }
+
+  // 无用户：根据 hash 显示不同的登录页
+  if(!user){
+    role='';
+    if(h==='admin'||h==='seller'){ _loginMode='seller'; }
+    else if(h==='login'){ _loginMode='all'; }
+    else { _loginMode='buyer'; }
+    render();
+    return;
+  }
+
+  // 已登录：根据 hash 切换
   if(h==='admin'||h==='seller'){ switchRole('seller'); }
   else if(h==='shop'||h==='cart'||h==='orders'||h==='checkout'||h==='result'||h==='login'){ switchRole('buyer'); if(h!=='login'&&h!=='result') buyerPage=h; }
   else { switchRole(role||'buyer'); }
 }
 
 window.addEventListener('hashchange',handleHash);
+
+// 初始加载：根据 hash 决定
+const _initHash = window.location.hash.slice(1);
+if(_initHash==='admin'||_initHash==='seller'){ _loginMode='seller'; }
+else if(_initHash==='login'){ _loginMode='all'; }
+else { _loginMode='buyer'; }
 if(!getUser()){ role=''; render(); } else { role='buyer'; buyerPage='shop'; render(); }
 </script>
 </body>
