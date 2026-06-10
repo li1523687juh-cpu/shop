@@ -610,48 +610,118 @@ function renderBuyerOrders(app){
 }
 
 // ==================== SELLER: DASHBOARD ====================
+let _chartDays = 7;
+
 function renderSellerDashboard(app){
-  const orders=getOrders();
-  const paid=orders.filter(o=>o.status==='PAID');
-  const todayStart=new Date(); todayStart.setHours(0,0,0,0);
-  const monthStart=new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
-  const today=paid.filter(o=>new Date(o.paidAt)>=todayStart).reduce((s,o)=>s+o.totalAmount,0);
-  const month=paid.filter(o=>new Date(o.paidAt)>=monthStart).reduce((s,o)=>s+o.totalAmount,0);
-  const totalR=paid.reduce((s,o)=>s+o.totalAmount,0);
-  const pending=orders.filter(o=>o.status==='PENDING').length;
+  const orders = getOrders();
+  const paid = orders.filter(o => o.status === 'PAID');
+  const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+  const yesterdayStart = new Date(todayStart); yesterdayStart.setDate(yesterdayStart.getDate()-1);
+  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+  const today = paid.filter(o => new Date(o.paidAt) >= todayStart).reduce((s,o) => s+o.totalAmount, 0);
+  const yesterday = paid.filter(o => new Date(o.paidAt) >= yesterdayStart && new Date(o.paidAt) < todayStart).reduce((s,o) => s+o.totalAmount, 0);
+  const month = paid.filter(o => new Date(o.paidAt) >= monthStart).reduce((s,o) => s+o.totalAmount, 0);
+  const totalR = paid.reduce((s,o) => s+o.totalAmount, 0);
+  const pending = orders.filter(o => o.status === 'PENDING').length;
+  const todayCount = paid.filter(o => new Date(o.paidAt) >= todayStart).length;
 
-  let html=`
-<div class="top-bar"><span class="title">📊 商家后台</span><span class="role-tag seller">卖家</span></div>
+  // 生成每日数据
+  const dailyData = [];
+  for(let i = _chartDays-1; i >= 0; i--){
+    const d = new Date(todayStart);
+    d.setDate(d.getDate() - i);
+    const dayStart = new Date(d); dayStart.setHours(0,0,0,0);
+    const dayEnd = new Date(d); dayEnd.setHours(23,59,59,999);
+    const dayPaid = paid.filter(o => { const t = new Date(o.paidAt); return t >= dayStart && t <= dayEnd; });
+    dailyData.push({
+      date: d,
+      label: i===0?'今天':(i===1?'昨天':`${d.getMonth()+1}/${d.getDate()}`),
+      amount: dayPaid.reduce((s,o)=>s+o.totalAmount, 0),
+      count: dayPaid.length
+    });
+  }
+
+  const maxAmount = Math.max(...dailyData.map(d=>d.amount), 1);
+  const barColor = (i) => i === dailyData.length-1 ? 'var(--green)' : 'var(--green-d)';
+
+  let html = `
+<div class="top-bar"><span class="title">📊 数据看板</span><span class="role-tag seller">卖家</span></div>
 <div class="pad">
+
+  <!-- 概览卡片 -->
   <div class="stat-grid">
-    <div class="stat-card"><div class="val">${F(today)}</div><div class="lbl">今日收入</div></div>
-    <div class="stat-card"><div class="val">${F(month)}</div><div class="lbl">本月收入</div></div>
-    <div class="stat-card"><div class="val">${F(totalR)}</div><div class="lbl">总收入</div></div>
+    <div class="stat-card">
+      <div class="val">${F(today)}</div>
+      <div class="lbl">今日收入 ${todayCount>0?`(${todayCount}单)`:'(-)'}</div>
+    </div>
+    <div class="stat-card">
+      <div class="val">${F(yesterday)}</div>
+      <div class="lbl">昨日收入</div>
+    </div>
+    <div class="stat-card">
+      <div class="val">${F(month)}</div>
+      <div class="lbl">本月收入</div>
+    </div>
   </div>
 
-  <div class="stat-grid" style="margin-top:12px;grid-template-columns:repeat(3,1fr)">
-    <div class="stat-card"><div class="val" style="color:var(--text)">${getProducts().filter(p=>p.listed).length}</div><div class="lbl">在售商品</div></div>
-    <div class="stat-card"><div class="val" style="color:var(--blue)">${orders.length}</div><div class="lbl">总订单</div></div>
-    <div class="stat-card"><div class="val" style="color:var(--orange)">${pending}</div><div class="lbl">待付款</div></div>
+  <div class="stat-grid" style="margin-top:10px;grid-template-columns:repeat(4,1fr)">
+    <div class="stat-card"><div class="val" style="font-size:16px;color:var(--red)">${F(totalR)}</div><div class="lbl">总收入</div></div>
+    <div class="stat-card"><div class="val" style="font-size:16px;color:var(--text)">${orders.length}</div><div class="lbl">总订单</div></div>
+    <div class="stat-card"><div class="val" style="font-size:16px;color:var(--orange)">${pending}</div><div class="lbl">待付款</div></div>
+    <div class="stat-card"><div class="val" style="font-size:16px;color:var(--blue)">${getProducts().filter(p=>p.listed).length}</div><div class="lbl">在售</div></div>
   </div>
 
+  <!-- 数据对比区域 -->
+  <div class="card" style="margin-top:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="margin:0">📈 成交趋势</h3>
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-sm" style="padding:5px 14px;font-size:12px;${_chartDays===7?'background:var(--green);color:#fff;border-color:var(--green)':'background:#fff;color:var(--text);border:1px solid var(--border)'}" onclick="_chartDays=7;renderSellerDashboard(document.getElementById('app'))">近7天</button>
+        <button class="btn btn-sm" style="padding:5px 14px;font-size:12px;${_chartDays===30?'background:var(--green);color:#fff;border-color:var(--green)':'background:#fff;color:var(--text);border:1px solid var(--border)'}" onclick="_chartDays=30;renderSellerDashboard(document.getElementById('app'))">近30天</button>
+      </div>
+    </div>
+
+    <!-- 柱状图 -->
+    <div style="display:flex;align-items:flex-end;gap:${_chartDays===30?'2px':'6px'};height:140px;padding:0 4px;overflow-x:auto">
+      ${dailyData.map((d,i) => `
+      <div style="flex:1;min-width:${_chartDays===30?'18px':'32px'};display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end">
+        <span style="font-size:10px;color:var(--green);font-weight:600;margin-bottom:2px">${d.amount>0?F(d.amount).replace('¥',''):''}</span>
+        <div style="width:100%;background:${barColor(i)};border-radius:4px 4px 0 0;height:${Math.max(d.amount/maxAmount*100,2)}%;min-height:4px;position:relative" title="${d.label}: ${F(d.amount)} · ${d.count}单"></div>
+        <span style="font-size:${_chartDays===30?'8px':'10px'};color:var(--text2);margin-top:6px;white-space:nowrap">${_chartDays===30?(i%3===0?d.label:''):d.label}</span>
+      </div>
+      `).join('')}
+    </div>
+
+    <!-- 数据列表 -->
+    <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:8px;max-height:${_chartDays===30?'300px':'auto'};overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:12px;color:var(--text2);font-weight:600">
+        <span style="width:50px">日期</span><span style="flex:1;text-align:right">成交额</span><span style="width:50px;text-align:right">单数</span><span style="width:60px;text-align:right">环比</span>
+      </div>
+      ${dailyData.map((d,i) => {
+        const prev = i>0 ? dailyData[i-1].amount : 0;
+        const change = prev>0 ? ((d.amount-prev)/prev*100).toFixed(1) : (d.amount>0?'+100':'0');
+        const changeColor = parseFloat(change)>0 ? 'var(--green)' : parseFloat(change)<0 ? 'var(--red)' : 'var(--text2)';
+        return `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;font-size:13px;border-bottom:1px solid var(--border)">
+          <span style="width:50px;font-weight:${d.label==='今天'?'700':'400'};color:${d.label==='今天'?'var(--green)':'var(--text)'}">${d.label}</span>
+          <span style="flex:1;text-align:right;font-weight:600">${F(d.amount)}</span>
+          <span style="width:50px;text-align:right;color:var(--text2)">${d.count}单</span>
+          <span style="width:60px;text-align:right;font-size:12px;color:${changeColor}">${parseFloat(change)>0?'+':''}${change}%</span>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>
+
+  <!-- 快捷入口 -->
   <div class="act-bar">
     <button class="btn btn-b btn-blk" onclick="goSeller('products')"><i class="fas fa-plus"></i> 管理商品</button>
-    <button class="btn btn-g btn-blk" onclick="goSeller('orders')"><i class="fas fa-list"></i> 查看订单</button>
   </div>
 
-  <h3>📱 店铺入口二维码</h3>
-  <div class="card" style="text-align:center">
-    <div id="qrcode-s" style="display:flex;justify-content:center"></div>
-    <p class="gray" style="margin-top:12px;word-break:break-all" id="qr-url-s"></p>
-    <button class="btn btn-g btn-sm" style="margin-top:12px" onclick="downloadQR()">下载二维码</button>
-    <p class="gray" style="margin-top:8px">打印出来贴在店里，顾客扫码即进店</p>
-  </div>
-
+  <!-- 最近订单 -->
   <h3>📋 最近订单</h3>`;
 
-  orders.slice(0,5).forEach(o=>{
-    html+=`
+  orders.slice(0,8).forEach(o => {
+    html += `
     <div class="card" style="font-size:13px">
       <div class="sp"><span>${o.outTradeNo}</span><span class="badge-s ${o.status}">${o.status}</span></div>
       <div style="color:var(--text2);margin:4px 0">${o.items?.map(i=>i.name+'×'+i.quantity).join('，')} | ${o.buyer||''}</div>
@@ -659,18 +729,8 @@ function renderSellerDashboard(app){
     </div>`;
   });
 
-  html+=`</div>`;
-  app.innerHTML=html;
-
-  setTimeout(()=>{
-    const qrUrl=window.location.href.replace(/#.*$/,'')+'#shop';
-    const c=document.getElementById('qrcode-s');
-    const u=document.getElementById('qr-url-s');
-    if(c){ c.innerHTML='';
-      try{ QRCode.toCanvas(document.createElement('canvas'),qrUrl,{width:200,margin:2},(err,canvas)=>{if(!err)c.appendChild(canvas);}); }catch(e){}
-    }
-    if(u) u.textContent=qrUrl;
-  },100);
+  html += `</div>`;
+  app.innerHTML = html;
 }
 
 // ==================== SELLER: PRODUCTS ====================
