@@ -8,7 +8,7 @@
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script>
 // 异步加载 Supabase SDK，不阻塞页面
-(function(){var s=document.createElement('script');s.src='https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js';s.async=true;s.onerror=function(){console.log('Supabase CDN不可用，使用离线模式')};document.head.appendChild(s);})();
+(function(){var s=document.createElement('script');s.src='https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js';s.async=true;s.onload=function(){try{window._initSB&&window._initSB()}catch(e){}};s.onerror=function(){console.log('Supabase CDN不可用，使用离线模式')};document.head.appendChild(s);})();
 </script>
 <style>
 :root {
@@ -148,13 +148,22 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px}
 // ==================== SUPABASE ====================
 const SB_URL = 'https://nfyabzmcsozbrmmrbuha.supabase.co';
 const SB_KEY = 'sb_publishable_SP7JvOb7z4ttm0-FrCmWxg_KPy8pcJe';
-const SB = supabase.createClient(SB_URL, SB_KEY);
+let SB = null;
 let _sbReady = false;
 
+// 等 SDK 加载完后初始化
+window._initSB = function(){
+  if(typeof supabase !== 'undefined'){
+    try { SB = supabase.createClient(SB_URL, SB_KEY); _sbReady = true; initSupabase(); }
+    catch(e){ console.log('Supabase init error', e); }
+  }
+};
+try { if(typeof supabase !== 'undefined') _initSB(); } catch(e){}
+
 // 初始化：从 Supabase 同步数据到本地缓存
-(async function initSupabase(){
+async function initSupabase(){
+  if(!SB) return;
   try {
-    // 同步商品
     const { data: prods } = await SB.from('products').select('*').eq('listed', true);
     if(prods && prods.length > 0){
       const mapped = prods.map(p=>({
@@ -163,17 +172,14 @@ let _sbReady = false;
         listed:p.listed!==false, createdAt:p.created_at
       }));
       LS.set('products', mapped);
-      _sbReady = true;
     }
 
-    // 同步当前用户的收藏
     const uid = getUser()?.id;
     if(uid){
       const { data: favs } = await SB.from('favorites').select('product_id').eq('user_id', uid);
       if(favs) LS.set('favs', favs.map(f=>f.product_id));
     }
 
-    // 同步所有订单（卖家需要看到）
     const { data: allOrders } = await SB.from('orders').select('*, order_items(*)');
     if(allOrders && allOrders.length > 0){
       const mapped = allOrders.map(o => ({
@@ -188,10 +194,8 @@ let _sbReady = false;
       }));
       LS.set('orders', mapped);
     }
-  } catch(e) {
-    console.log('Supabase离线，使用本地数据');
-  }
-})();
+  } catch(e) { console.log('Supabase离线，使用本地数据'); }
+}
 
 // 云端写入辅助
 async function _sbUpsertProducts(products){
