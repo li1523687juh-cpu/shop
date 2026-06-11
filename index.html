@@ -634,13 +634,11 @@ function closeCheckout(){
 
 function selPayModal(ch){
   payChannel=ch;
+  const cart=getCart(); const total=cart.reduce((s,i)=>s+i.price*i.quantity,0);
   document.getElementById('co-wx').className = 'pay-opt '+(ch==='wechat'?'sel-wx':'');
   document.getElementById('co-ali').className = 'pay-opt '+(ch==='alipay'?'sel-ali':'');
   const btn = document.getElementById('pay-btn');
   btn.style.background = ch==='wechat'?'var(--green)':'var(--blue)';
-  btn.innerHTML = '<i class="fab fa-'+(ch==='wechat'?'weixin':'alipay')+'"></i> 确认支付 '+btn.innerHTML.split('¥')[1] ? '¥'+btn.innerHTML.split('¥')[1] : '';
-  // Relabel
-  const cart=getCart(); const total=cart.reduce((s,i)=>s+i.price*i.quantity,0);
   btn.innerHTML = '<i class="fab fa-'+(ch==='wechat'?'weixin':'alipay')+'"></i> 确认支付 '+F(total);
 }
 
