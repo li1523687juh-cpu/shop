@@ -277,11 +277,8 @@ function render(){
   } else {
     role='buyer';
     document.body.className='buyer';
-    // 结算页、支付结果页、详情页隐藏底部导航
-    const hideNav = buyerPage === 'checkout' || buyerPage === 'result' || buyerPage === 'detail';
-    document.getElementById('bn') && (document.getElementById('bn').style.display = hideNav ? 'none' : '');
-    app.style.paddingBottom = hideNav ? '0' : '65px';
-    if(hideNav){ nav.innerHTML=''; } else {
+    // 导航始终显示
+    app.style.paddingBottom = '65px';
     cartCount = getCart().reduce((s,i)=>s+i.quantity,0);
     nav.innerHTML = `
     <div id="buyer-nav">
@@ -293,14 +290,11 @@ function render(){
     switch(buyerPage){
       case 'shop': renderShop(app); break;
       case 'cart': renderCart(app); break;
-      case 'checkout': renderCheckout(app); break;
-      case 'result': renderResult(app); break;
       case 'orders': renderBuyerOrders(app); break;
       case 'detail': renderDetail(app); break;
       case 'profile': renderProfile(app); break;
       case 'favs': renderFavs(app); break;
     }
-  }
   }
   window.scrollTo(0,0);
 }
@@ -560,7 +554,7 @@ function renderCart(app){
     html+=`
     <div class="fix-bot">
       <div><span style="font-size:13px;color:var(--text2)">合计: </span><span class="amt">${F(total)}</span></div>
-      <button class="btn btn-g" style="font-size:16px;padding:12px 32px" onclick="goBuyer('checkout')">去结算</button>
+      <button class="btn btn-g" style="font-size:16px;padding:12px 32px" onclick="showCheckout()">去结算</button>
     </div><div style="height:70px"></div>`;
   }
   html+=`</div>`;
@@ -580,56 +574,77 @@ function rmCart(pid){
   cartCount=getCart().reduce((s,i)=>s+i.quantity,0); render();
 }
 
-// ==================== BUYER: CHECKOUT ====================
+// ==================== BUYER: CHECKOUT（弹窗模式，导航不隐藏） ====================
 let payChannel='wechat';
 
-function renderCheckout(app){
+function showCheckout(){
   const cart=getCart();
-  if(cart.length===0){goBuyer('cart');return;}
+  if(cart.length===0){ toast('购物车是空的','err'); return; }
   const total=cart.reduce((s,i)=>s+i.price*i.quantity,0);
 
-  let html=`
-<div class="top-bar"><span class="title">📋 确认订单</span><span class="role-tag buyer">买家</span></div>
-<div class="pad">
-  ${cart.map(i=>`
-  <div class="citem">
-    <img src="${i.image}" alt="${i.name}" onerror="this.style.display='none'" style="width:56px;height:56px">
-    <div class="ci">
-      <h4>${i.name}</h4>
-      <div style="display:flex;justify-content:space-between">
-        <span style="font-size:12px;color:var(--text2)">×${i.quantity}</span>
-        <span style="font-weight:600">${F(i.price*i.quantity)}</span>
+  // 创建遮罩层
+  const overlay = document.createElement('div');
+  overlay.id = 'checkout-overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:300;display:flex;align-items:flex-end;justify-content:center';
+  overlay.onclick = function(e){ if(e.target===overlay) closeCheckout(); };
+
+  overlay.innerHTML = `
+  <div style="background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;padding:16px" onclick="event.stopPropagation()">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="margin:0">📋 确认订单</h3>
+      <button style="border:none;background:none;font-size:24px;cursor:pointer;padding:4px" onclick="closeCheckout()">&times;</button>
+    </div>
+    ${cart.map(i=>`
+    <div style="display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
+      <img src="${i.image}" alt="${i.name}" style="width:48px;height:48px;border-radius:6px;object-fit:cover;background:#f0f0f0" onerror="this.style.display='none'">
+      <div style="flex:1"><p style="font-size:14px;font-weight:500">${i.name}</p><p style="font-size:12px;color:var(--text2)">×${i.quantity}</p></div>
+      <span style="font-weight:600">${F(i.price*i.quantity)}</span>
+    </div>`).join('')}
+
+    <div style="margin:16px 0">
+      <div class="sp"><span class="l">商品总计</span><span class="r">${F(total)}</span></div>
+      <div class="sp tot"><span class="l">应付金额</span><span class="r">${F(total)}</span></div>
+    </div>
+
+    <p style="font-weight:600;margin-bottom:8px">选择支付方式</p>
+    <div class="pay-opts">
+      <div class="pay-opt sel-wx" id="co-wx" onclick="selPayModal('wechat')">
+        <i class="fab fa-weixin" style="color:var(--green)"></i><p>微信支付</p>
+      </div>
+      <div class="pay-opt" id="co-ali" onclick="selPayModal('alipay')">
+        <i class="fab fa-alipay" style="color:var(--blue)"></i><p>支付宝</p>
       </div>
     </div>
-  </div>`).join('')}
 
-  <div class="card">
-    <div class="sp"><span class="l">商品总计</span><span class="r">${F(total)}</span></div>
-    <div class="sp tot"><span class="l">应付金额</span><span class="r">${F(total)}</span></div>
-  </div>
+    <button class="btn btn-blk btn-lg" id="pay-btn" style="background:var(--green);color:#fff;margin-bottom:16px"
+      onclick="doPayModal()">
+      <i class="fab fa-weixin"></i> 确认支付 ${F(total)}
+    </button>
+    <div style="height:env(safe-area-inset-bottom,16px)"></div>
+  </div>`;
 
-  <h3>选择支付方式</h3>
-  <div class="pay-opts">
-    <div class="pay-opt ${payChannel==='wechat'?'sel-wx':''}" onclick="selPay('wechat')">
-      <i class="fab fa-weixin" style="color:var(--green)"></i><p>微信支付</p>
-    </div>
-    <div class="pay-opt ${payChannel==='alipay'?'sel-ali':''}" onclick="selPay('alipay')">
-      <i class="fab fa-alipay" style="color:var(--blue)"></i><p>支付宝</p>
-    </div>
-  </div>
-
-  <button class="btn btn-blk btn-lg" style="background:${payChannel==='wechat'?'var(--green)':'var(--blue)'};color:#fff"
-    onclick="doPay()">
-    <i class="fab fa-${payChannel==='wechat'?'weixin':'alipay'}"></i> 确认支付 ${F(total)}
-  </button>
-  <div style="height:60px"></div>
-</div>`;
-  app.innerHTML=html;
+  document.body.appendChild(overlay);
+  payChannel='wechat';
 }
 
-function selPay(ch){ payChannel=ch; render(); }
+function closeCheckout(){
+  const o = document.getElementById('checkout-overlay');
+  if(o) o.remove();
+}
 
-function doPay(){
+function selPayModal(ch){
+  payChannel=ch;
+  document.getElementById('co-wx').className = 'pay-opt '+(ch==='wechat'?'sel-wx':'');
+  document.getElementById('co-ali').className = 'pay-opt '+(ch==='alipay'?'sel-ali':'');
+  const btn = document.getElementById('pay-btn');
+  btn.style.background = ch==='wechat'?'var(--green)':'var(--blue)';
+  btn.innerHTML = '<i class="fab fa-'+(ch==='wechat'?'weixin':'alipay')+'"></i> 确认支付 '+btn.innerHTML.split('¥')[1] ? '¥'+btn.innerHTML.split('¥')[1] : '';
+  // Relabel
+  const cart=getCart(); const total=cart.reduce((s,i)=>s+i.price*i.quantity,0);
+  btn.innerHTML = '<i class="fab fa-'+(ch==='wechat'?'weixin':'alipay')+'"></i> 确认支付 '+F(total);
+}
+
+function doPayModal(){
   const cart=getCart();
   if(cart.length===0)return;
   const total=cart.reduce((s,i)=>s+i.price*i.quantity,0);
@@ -642,45 +657,61 @@ function doPay(){
     paidAt:null, createdAt:new Date().toISOString()
   };
 
-  const orders=getOrders(); orders.unshift(order); saveOrders(orders); _sbInsertOrder(order);
+  const orders=getOrders(); orders.unshift(order); saveOrders(orders);
 
-  // Update stock
   const products=getProducts();
   cart.forEach(ci=>{ const p=products.find(x=>x.id===ci.productId); if(p) p.stock=Math.max(0,p.stock-ci.quantity); });
   saveProducts(products);
   saveCart([]); cartCount=0;
   LS.set('_lastOrder',order);
 
-  const app=document.getElementById('app');
-  app.innerHTML=`
-<div class="pad" style="text-align:center;padding-top:40px">
-  <i class="fas fa-clock" style="font-size:48px;color:var(--orange)"></i>
-  <h2 style="margin:16px 0 8px">等待支付</h2>
-  <p class="gray">订单号: ${order.outTradeNo}</p>
-  <p style="font-size:24px;font-weight:700;color:var(--red);margin:8px 0">${F(total)}</p>
-  <p style="font-size:13px;font-weight:600">${payChannel==='wechat'?'微信支付':'支付宝'}</p>
-
-  <div class="qr-box">
-    <div style="width:200px;height:200px;background:#f0f0f0;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px dashed var(--border)">
-      <i class="fab fa-${payChannel==='wechat'?'weixin':'alipay'}" style="font-size:48px;color:${payChannel==='wechat'?'var(--green)':'var(--blue)'}"></i>
-      <p class="gray" style="margin-top:8px">模拟${payChannel==='wechat'?'微信':'支付宝'}收款码</p>
-    </div>
-  </div>
-
-  <p class="gray" style="margin-bottom:20px">开发模式 · 点击下方按钮模拟支付成功</p>
-  <button class="btn btn-g btn-blk" onclick="mockPaySuccess('${order.id}')" style="margin-bottom:8px">💰 一键模拟支付成功</button>
-  <button class="btn btn-gray btn-blk" onclick="goBuyer('shop')">返回店铺</button>
-  <div style="height:60px"></div>
-</div>`;
-  document.getElementById('nav-area').innerHTML='';
-  document.getElementById('app').style.paddingBottom='0';
+  // 替换弹窗内容为支付模拟
+  const overlay = document.getElementById('checkout-overlay');
+  if(overlay){
+    overlay.innerHTML = `
+    <div style="background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;padding:16px" onclick="event.stopPropagation()">
+      <div style="text-align:center;padding:20px 0">
+        <i class="fas fa-clock" style="font-size:48px;color:var(--orange)"></i>
+        <h3 style="margin:12px 0 4px">等待支付</h3>
+        <p style="font-size:12px;color:var(--text2)">订单号: ${order.outTradeNo}</p>
+        <p style="font-size:22px;font-weight:700;color:var(--red);margin:6px 0">${F(total)}</p>
+        <p style="font-weight:600;font-size:14px">${payChannel==='wechat'?'微信支付':'支付宝'}</p>
+        <div style="width:160px;height:160px;margin:16px auto;background:#f0f0f0;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px dashed var(--border)">
+          <i class="fab fa-${payChannel==='wechat'?'weixin':'alipay'}" style="font-size:40px;color:${payChannel==='wechat'?'var(--green)':'var(--blue)'}"></i>
+          <p style="font-size:11px;color:var(--text2);margin-top:6px">模拟收款码</p>
+        </div>
+        <p style="font-size:12px;color:var(--text2);margin-bottom:16px">开发模式</p>
+        <button class="btn btn-g btn-blk" style="margin-bottom:8px" onclick="mockPaySuccessModal('${order.id}')">💰 一键模拟支付成功</button>
+        <button class="btn btn-gray btn-blk" onclick="closeCheckout();goBuyer('shop')">取消</button>
+        <div style="height:16px"></div>
+      </div>
+    </div>`;
+  }
 }
 
-function mockPaySuccess(orderId){
+function mockPaySuccessModal(orderId){
   const orders=getOrders();
   const order=orders.find(o=>o.id===orderId);
   if(order){ order.status='PAID'; order.paidAt=new Date().toISOString(); saveOrders(orders); LS.set('_lastOrder',order); }
-  toast('支付成功！'); buyerPage='result'; role='buyer'; document.getElementById('app').style.paddingBottom='0'; render();
+
+  // Show success in modal
+  const overlay = document.getElementById('checkout-overlay');
+  if(overlay){
+    overlay.innerHTML = `
+    <div style="background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;padding:16px;text-align:center" onclick="event.stopPropagation()">
+      <div style="width:64px;height:64px;border-radius:32px;background:#f0fdf4;display:flex;align-items:center;justify-content:center;margin:20px auto">
+        <i class="fas fa-check-circle" style="font-size:40px;color:var(--green)"></i>
+      </div>
+      <h3>支付成功！</h3>
+      <p style="color:var(--text2);margin:4px 0 16px">感谢购买</p>
+      <p style="font-size:13px">订单号: ${order.outTradeNo}</p>
+      <p style="font-size:20px;font-weight:700;color:var(--red);margin:4px 0">${F(order.totalAmount)}</p>
+      <p style="font-size:12px;color:var(--text2)">${order.paymentChannel==='wechat'?'微信支付':'支付宝'}</p>
+      <button class="btn btn-g btn-blk" style="margin-top:16px" onclick="closeCheckout();goBuyer('shop')">继续购物</button>
+      <button class="btn btn-gray btn-blk" style="margin-top:8px" onclick="closeCheckout();goBuyer('profile')">查看订单</button>
+      <div style="height:16px"></div>
+    </div>`;
+  }
 }
 
 // ==================== BUYER: RESULT ====================
