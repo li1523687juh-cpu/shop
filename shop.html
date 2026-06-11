@@ -6,6 +6,7 @@
 <title>一码多付 · 店铺</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 :root {
   --green:#07C160; --green-d:#06AD56; --blue:#1677FF; --blue-d:#0958D9;
@@ -141,6 +142,106 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px}
 <div id="nav-area"></div>
 <script>
 // ==================== DATA LAYER ====================
+// ==================== SUPABASE ====================
+const SB_URL = 'https://nfyabzmcsozbrmmrbuha.supabase.co';
+const SB_KEY = 'sb_publishable_SP7JvOb7z4ttm0-FrCmWxg_KPy8pcJe';
+const SB = supabase.createClient(SB_URL, SB_KEY);
+let _sbReady = false;
+
+// 初始化：从 Supabase 同步数据到本地缓存
+(async function initSupabase(){
+  try {
+    // 同步商品
+    const { data: prods } = await SB.from('products').select('*').eq('listed', true);
+    if(prods && prods.length > 0){
+      const mapped = prods.map(p=>({
+        id:p.id, name:p.name, price:p.price, stock:p.stock,
+        image:p.image||p.imageUrl, desc:p.description||'',
+        listed:p.listed!==false, createdAt:p.created_at
+      }));
+      LS.set('products', mapped);
+      _sbReady = true;
+    }
+
+    // 同步当前用户的收藏
+    const uid = getUser()?.id;
+    if(uid){
+      const { data: favs } = await SB.from('favorites').select('product_id').eq('user_id', uid);
+      if(favs) LS.set('favs', favs.map(f=>f.product_id));
+    }
+
+    // 同步所有订单（卖家需要看到）
+    const { data: allOrders } = await SB.from('orders').select('*, order_items(*)');
+    if(allOrders && allOrders.length > 0){
+      const mapped = allOrders.map(o => ({
+        id: o.id, outTradeNo: o.out_trade_no, totalAmount: o.total_amount,
+        status: o.status, paymentChannel: o.payment_channel, buyer: o.buyer||'',
+        paidAt: o.paid_at, createdAt: o.created_at,
+        items: (o.order_items||[]).map(i=>({
+          id: i.id, orderId: i.order_id, productId: i.product_id,
+          name: i.product_name, image: i.product_image,
+          quantity: i.quantity, price: i.price
+        }))
+      }));
+      LS.set('orders', mapped);
+    }
+  } catch(e) {
+    console.log('Supabase离线，使用本地数据');
+  }
+})();
+
+// 云端写入辅助
+async function _sbUpsertProducts(products){
+  if(!_sbReady) return;
+  try {
+    for(const p of products){
+      await SB.from('products').upsert({
+        id:p.id, name:p.name, price:p.price, stock:p.stock,
+        image:p.image, description:p.desc||'', listed:p.listed!==false,
+        created_at:p.createdAt||new Date().toISOString()
+      });
+    }
+  } catch(e){ console.log('SB sync err',e); }
+}
+
+async function _sbDeleteProduct(id){
+  if(!_sbReady) return;
+  try { await SB.from('products').delete().eq('id',id); } catch(e){}
+}
+
+async function _sbInsertOrder(order){
+  if(!_sbReady) return;
+  try {
+    await SB.from('orders').insert({
+      id:order.id, out_trade_no:order.outTradeNo, user_id:order.userId||'',
+      total_amount:order.totalAmount, status:order.status,
+      payment_channel:order.paymentChannel, buyer:order.buyer||'',
+      paid_at:order.paidAt, created_at:order.createdAt
+    });
+    for(const item of (order.items||[])){
+      await SB.from('order_items').insert({
+        order_id:order.id, product_id:item.productId,
+        product_name:item.name, product_image:item.image,
+        quantity:item.quantity, price:item.price
+      });
+    }
+  } catch(e){ console.log('SB order err',e); }
+}
+
+async function _sbUpdateOrderStatus(id, status, paidAt){
+  if(!_sbReady) return;
+  try { await SB.from('orders').update({status, paid_at:paidAt}).eq('id',id); } catch(e){}
+}
+
+async function _sbToggleFav(userId, productId, add){
+  if(!_sbReady) return;
+  try {
+    if(add) await SB.from('favorites').upsert({user_id:userId, product_id:productId});
+    else await SB.from('favorites').delete().eq('user_id',userId).eq('product_id',productId);
+  } catch(e){}
+}
+
+// ==================== LOCAL DATA LAYER ====================
 const LS = {
   get(k,d){ try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch{return d} },
   set(k,v){ localStorage.setItem(k,JSON.stringify(v)) }
@@ -154,14 +255,14 @@ const SEED = [
   {id:'s6',name:'便携充电宝10000mAh',price:12900,stock:35,image:'https://picsum.photos/seed/powerbank/400/400',desc:'轻薄小巧 支持快充',listed:true,createdAt:new Date().toISOString()},
 ];
 function getProducts(){ const s=LS.get('products',null); return s&&s.length>0?s:SEED; }
-function saveProducts(p){ LS.set('products',p); }
+function saveProducts(p){ LS.set('products',p); _sbUpsertProducts(p); }
 function getCart(){ return LS.get('cart',[]); }
 function saveCart(c){ LS.set('cart',c); }
 function getOrders(){ return LS.get('orders',[]); }
 function saveOrders(o){ LS.set('orders',o); }
 function getFavs(){ return LS.get('favs',[]); }
 function saveFavs(f){ LS.set('favs',f); }
-function toggleFav(pid){ const f=getFavs(); const i=f.indexOf(pid); if(i>-1) f.splice(i,1); else f.push(pid); saveFavs(f); }
+function toggleFav(pid){ const f=getFavs(); const i=f.indexOf(pid); if(i>-1){ f.splice(i,1); _sbToggleFav(getUser()?.id,pid,false); } else { f.push(pid); _sbToggleFav(getUser()?.id,pid,true); } saveFavs(f); }
 function isFav(pid){ return getFavs().includes(pid); }
 function getUser(){ return LS.get('user',null); }
 function saveUser(u){ LS.set('user',u); }
@@ -576,7 +677,7 @@ function doPay(){
     paidAt:null, createdAt:new Date().toISOString()
   };
 
-  const orders=getOrders(); orders.unshift(order); saveOrders(orders);
+  const orders=getOrders(); orders.unshift(order); saveOrders(orders); _sbInsertOrder(order);
 
   // Update stock
   const products=getProducts();
@@ -611,7 +712,7 @@ function doPay(){
 function mockPaySuccess(orderId){
   const orders=getOrders();
   const order=orders.find(o=>o.id===orderId);
-  if(order){ order.status='PAID'; order.paidAt=new Date().toISOString(); saveOrders(orders); LS.set('_lastOrder',order); }
+  if(order){ order.status='PAID'; order.paidAt=new Date().toISOString(); saveOrders(orders); LS.set('_lastOrder',order); _sbUpdateOrderStatus(order.id,'PAID',order.paidAt); }
   toast('支付成功！'); setTimeout(()=>goBuyer('result'),500);
 }
 
@@ -996,6 +1097,7 @@ function sellerAddProduct(){
 function sellerDelProduct(id){
   if(!confirm('确定删除？'))return;
   saveProducts(getProducts().filter(p=>p.id!==id));
+  _sbDeleteProduct(id);
   toast('已删除');
   goSeller('products');
 }
@@ -1027,13 +1129,13 @@ function renderSellerOrders(app){
 function shipOrder(id){
   const orders=getOrders();
   const o=orders.find(x=>x.id===id);
-  if(o){ o.status='SHIPPED'; saveOrders(orders); toast('已标记发货'); goSeller('orders'); }
+  if(o){ o.status='SHIPPED'; saveOrders(orders); _sbUpdateOrderStatus(o.id,'SHIPPED',null); toast('已标记发货'); goSeller('orders'); }
 }
 
 function completeOrder(id){
   const orders=getOrders();
   const o=orders.find(x=>x.id===id);
-  if(o){ o.status='COMPLETED'; saveOrders(orders); toast('订单已完成'); goSeller('orders'); }
+  if(o){ o.status='COMPLETED'; saveOrders(orders); _sbUpdateOrderStatus(o.id,'COMPLETED',null); toast('订单已完成'); goSeller('orders'); }
 }
 
 // ==================== HASH ROUTING ====================
