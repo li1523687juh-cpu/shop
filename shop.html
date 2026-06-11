@@ -679,8 +679,8 @@ function doPay(){
 function mockPaySuccess(orderId){
   const orders=getOrders();
   const order=orders.find(o=>o.id===orderId);
-  if(order){ order.status='PAID'; order.paidAt=new Date().toISOString(); saveOrders(orders); LS.set('_lastOrder',order); _sbUpdateOrderStatus(order.id,'PAID',order.paidAt); }
-  toast('支付成功！'); setTimeout(()=>goBuyer('result'),500);
+  if(order){ order.status='PAID'; order.paidAt=new Date().toISOString(); saveOrders(orders); LS.set('_lastOrder',order); }
+  toast('支付成功！'); buyerPage='result'; role='buyer'; document.getElementById('app').style.paddingBottom='0'; render();
 }
 
 // ==================== BUYER: RESULT ====================
