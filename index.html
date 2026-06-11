@@ -6,10 +6,7 @@
 <title>一码多付 · 店铺</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-<script>
-// 异步加载 Supabase SDK，不阻塞页面
-(function(){var s=document.createElement('script');s.src='https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js';s.async=true;s.onload=function(){try{window._initSB&&window._initSB()}catch(e){}};s.onerror=function(){console.log('Supabase CDN不可用，使用离线模式')};document.head.appendChild(s);})();
-</script>
+<!-- Supabase SDK 暂时禁用，调试白屏 -->
 <style>
 :root {
   --green:#07C160; --green-d:#06AD56; --blue:#1677FF; --blue-d:#0958D9;
@@ -146,56 +143,12 @@ h3{font-size:16px;font-weight:600;margin-bottom:12px}
 <script>
 // ==================== DATA LAYER ====================
 // ==================== SUPABASE ====================
-const SB_URL = 'https://nfyabzmcsozbrmmrbuha.supabase.co';
-const SB_KEY = 'sb_publishable_SP7JvOb7z4ttm0-FrCmWxg_KPy8pcJe';
-let SB = null;
-let _sbReady = false;
-
-// 等 SDK 加载完后初始化
-window._initSB = function(){
-  if(typeof supabase !== 'undefined'){
-    try { SB = supabase.createClient(SB_URL, SB_KEY); _sbReady = true; initSupabase(); }
-    catch(e){ console.log('Supabase init error', e); }
-  }
-};
-try { if(typeof supabase !== 'undefined') _initSB(); } catch(e){}
-
-// 初始化：从 Supabase 同步数据到本地缓存
-async function initSupabase(){
-  if(!SB) return;
-  try {
-    const { data: prods } = await SB.from('products').select('*').eq('listed', true);
-    if(prods && prods.length > 0){
-      const mapped = prods.map(p=>({
-        id:p.id, name:p.name, price:p.price, stock:p.stock,
-        image:p.image||p.imageUrl, desc:p.description||'',
-        listed:p.listed!==false, createdAt:p.created_at
-      }));
-      LS.set('products', mapped);
-    }
-
-    const uid = getUser()?.id;
-    if(uid){
-      const { data: favs } = await SB.from('favorites').select('product_id').eq('user_id', uid);
-      if(favs) LS.set('favs', favs.map(f=>f.product_id));
-    }
-
-    const { data: allOrders } = await SB.from('orders').select('*, order_items(*)');
-    if(allOrders && allOrders.length > 0){
-      const mapped = allOrders.map(o => ({
-        id: o.id, outTradeNo: o.out_trade_no, totalAmount: o.total_amount,
-        status: o.status, paymentChannel: o.payment_channel, buyer: o.buyer||'',
-        paidAt: o.paid_at, createdAt: o.created_at,
-        items: (o.order_items||[]).map(i=>({
-          id: i.id, orderId: i.order_id, productId: i.product_id,
-          name: i.product_name, image: i.product_image,
-          quantity: i.quantity, price: i.price
-        }))
-      }));
-      LS.set('orders', mapped);
-    }
-  } catch(e) { console.log('Supabase离线，使用本地数据'); }
-}
+// ==================== SUPABASE（暂时禁用，SDK加载问题解决后再启用） ====================
+function _sbUpsertProducts(p){}
+function _sbDeleteProduct(id){}
+function _sbInsertOrder(o){}
+function _sbUpdateOrderStatus(id,s,t){}
+function _sbToggleFav(uid,pid,add){}
 
 // 云端写入辅助
 async function _sbUpsertProducts(products){
@@ -346,6 +299,7 @@ function render(){
       case 'profile': renderProfile(app); break;
       case 'favs': renderFavs(app); break;
     }
+  }
   }
   window.scrollTo(0,0);
 }
