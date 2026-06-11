@@ -317,7 +317,10 @@ function render(){
   } else {
     role='buyer';
     document.body.className='buyer';
-    app.style.paddingBottom='65px';
+    // 结算页和支付结果页隐藏底部导航
+    const hideNav = buyerPage === 'checkout' || buyerPage === 'result';
+    app.style.paddingBottom = hideNav ? '0' : '65px';
+    if(hideNav){ nav.innerHTML=''; } else {
     cartCount = getCart().reduce((s,i)=>s+i.quantity,0);
     nav.innerHTML = `
     <div id="buyer-nav">
