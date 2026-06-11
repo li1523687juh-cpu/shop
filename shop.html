@@ -87,7 +87,7 @@ body.buyer{padding-bottom:calc(65px + env(safe-area-inset-bottom,0px))} body.sel
 h2{font-size:20px;font-weight:700;padding:16px 0 12px}
 h3{font-size:16px;font-weight:600;margin-bottom:12px}
 /* Fix bottom */
-.fix-bot{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;z-index:99}
+.fix-bot{position:fixed;bottom:58px;left:0;right:0;background:var(--card);border-top:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;z-index:99}
 .fix-bot .amt{font-size:20px;font-weight:700;color:var(--red)}
 /* Split */
 .sp{display:flex;justify-content:space-between;align-items:center;padding:6px 0}
@@ -247,7 +247,7 @@ let sellerPage='dashboard';
 let cartCount=0;
 
 let _detailPid = '';
-function goBuyer(p){ buyerPage=p; role='buyer'; render(); }
+function goBuyer(p){ closeCheckout(); buyerPage=p; role='buyer'; render(); }
 function goDetail(pid){ _detailPid=pid; buyerPage='detail'; role='buyer'; render(); }
 function goSeller(p){ sellerPage=p; role='seller'; render(); }
 function goLogin(){ role=''; saveUser(null); _loginMode='all'; render(); }
@@ -509,8 +509,8 @@ function renderDetail(app){
       </div>` : ''}
     </div>
 
-    <!-- 底部购买栏 -->
-    <div style="position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:12px;z-index:99">
+    <!-- 底部购买栏（放在导航上面） -->
+    <div style="position:fixed;bottom:58px;left:0;right:0;background:var(--card);border-top:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:12px;z-index:99">
       <button class="btn" style="background:#f5f5f5;font-size:20px;padding:12px 16px" onclick="goBuyer('cart')">
         <i class="fas fa-shopping-cart"></i>
       </button>
@@ -520,7 +520,7 @@ function renderDetail(app){
         ${product.stock<=0?'已售罄':'加入购物车'}
       </button>
     </div>
-    <div style="height:80px"></div>
+    <div style="height:130px"></div>
   </div>`;
 }
 
@@ -555,7 +555,7 @@ function renderCart(app){
     <div class="fix-bot">
       <div><span style="font-size:13px;color:var(--text2)">合计: </span><span class="amt">${F(total)}</span></div>
       <button class="btn btn-g" style="font-size:16px;padding:12px 32px" onclick="showCheckout()">去结算</button>
-    </div><div style="height:70px"></div>`;
+    </div><div style="height:130px"></div>`;
   }
   html+=`</div>`;
   app.innerHTML=html;
@@ -585,7 +585,7 @@ function showCheckout(){
   // 创建遮罩层
   const overlay = document.createElement('div');
   overlay.id = 'checkout-overlay';
-  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:300;display:flex;align-items:flex-end;justify-content:center';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:58px;background:rgba(0,0,0,0.5);z-index:300;display:flex;align-items:flex-end;justify-content:center';
   overlay.onclick = function(e){ if(e.target===overlay) closeCheckout(); };
 
   overlay.innerHTML = `
