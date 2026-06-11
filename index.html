@@ -15,8 +15,8 @@
   --shadow:0 2px 12px rgba(0,0,0,0.08);
 }
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
-body.buyer{padding-bottom:65px} body.seller{padding-bottom:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:env(safe-area-inset-bottom,0px)}
+body.buyer{padding-bottom:calc(65px + env(safe-area-inset-bottom,0px))} body.seller{padding-bottom:calc(58px + env(safe-area-inset-bottom,0px))}
 #app{min-height:100vh}
 /* Toast */
 #toast-c{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px}
@@ -277,8 +277,9 @@ function render(){
   } else {
     role='buyer';
     document.body.className='buyer';
-    // 结算页和支付结果页隐藏底部导航
-    const hideNav = buyerPage === 'checkout' || buyerPage === 'result';
+    // 结算页、支付结果页、详情页隐藏底部导航
+    const hideNav = buyerPage === 'checkout' || buyerPage === 'result' || buyerPage === 'detail';
+    document.getElementById('bn') && (document.getElementById('bn').style.display = hideNav ? 'none' : '');
     app.style.paddingBottom = hideNav ? '0' : '65px';
     if(hideNav){ nav.innerHTML=''; } else {
     cartCount = getCart().reduce((s,i)=>s+i.quantity,0);
@@ -621,7 +622,7 @@ function renderCheckout(app){
     onclick="doPay()">
     <i class="fab fa-${payChannel==='wechat'?'weixin':'alipay'}"></i> 确认支付 ${F(total)}
   </button>
-  <div style="height:20px"></div>
+  <div style="height:60px"></div>
 </div>`;
   app.innerHTML=html;
 }
@@ -669,8 +670,10 @@ function doPay(){
   <p class="gray" style="margin-bottom:20px">开发模式 · 点击下方按钮模拟支付成功</p>
   <button class="btn btn-g btn-blk" onclick="mockPaySuccess('${order.id}')" style="margin-bottom:8px">💰 一键模拟支付成功</button>
   <button class="btn btn-gray btn-blk" onclick="goBuyer('shop')">返回店铺</button>
+  <div style="height:60px"></div>
 </div>`;
   document.getElementById('nav-area').innerHTML='';
+  document.getElementById('app').style.paddingBottom='0';
 }
 
 function mockPaySuccess(orderId){
