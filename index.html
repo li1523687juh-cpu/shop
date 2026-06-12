@@ -226,6 +226,51 @@ function toggleFav(pid){ const f=getFavs(); const i=f.indexOf(pid); if(i>-1){ f.
 function isFav(pid){ return getFavs().includes(pid); }
 function getUser(){ return LS.get('user',null); }
 function saveUser(u){ LS.set('user',u); }
+function getAddresses(){ return LS.get('addresses',[]); }
+function saveAddress(a){
+  const addrs = getAddresses();
+  addrs.unshift(a);
+  if(addrs.length > 10) addrs.pop();
+  LS.set('addresses', addrs);
+}
+
+// 中国省市数据
+const REGIONS = {
+'北京市':['东城区','西城区','朝阳区','海淀区','丰台区','石景山区','通州区','大兴区','昌平区','顺义区'],
+'上海市':['黄浦区','徐汇区','长宁区','静安区','普陀区','虹口区','杨浦区','闵行区','宝山区','浦东新区'],
+'天津市':['和平区','河东区','河西区','南开区','河北区','红桥区','滨海新区','东丽区','西青区','北辰区'],
+'重庆市':['渝中区','江北区','沙坪坝区','九龙坡区','南岸区','渝北区','巴南区','万州区','涪陵区','北碚区'],
+'广东省':['广州','深圳','东莞','佛山','珠海','中山','惠州','汕头','江门','湛江','肇庆','揭阳','梅州','清远','茂名','韶关','河源','阳江','潮州','汕尾','云浮'],
+'浙江省':['杭州','宁波','温州','嘉兴','湖州','绍兴','金华','衢州','舟山','台州','丽水'],
+'江苏省':['南京','苏州','无锡','常州','南通','徐州','扬州','镇江','盐城','泰州','淮安','连云港','宿迁'],
+'山东省':['济南','青岛','烟台','潍坊','临沂','淄博','威海','济宁','泰安','日照','东营','德州','聊城','滨州','菏泽','枣庄'],
+'四川省':['成都','绵阳','德阳','宜宾','南充','泸州','乐山','达州','广元','攀枝花','自贡','内江','遂宁','广安','眉山','资阳','雅安','巴中'],
+'湖北省':['武汉','宜昌','襄阳','荆州','黄石','十堰','孝感','黄冈','鄂州','咸宁','随州','恩施','荆门'],
+'湖南省':['长沙','株洲','湘潭','衡阳','邵阳','岳阳','常德','张家界','益阳','郴州','永州','怀化','娄底'],
+'河南省':['郑州','洛阳','开封','南阳','许昌','新乡','安阳','焦作','平顶山','信阳','商丘','周口','驻马店','漯河','三门峡','濮阳','鹤壁'],
+'河北省':['石家庄','唐山','保定','邯郸','廊坊','沧州','邢台','衡水','秦皇岛','张家口','承德'],
+'福建省':['福州','厦门','泉州','漳州','莆田','龙岩','三明','南平','宁德'],
+'安徽省':['合肥','芜湖','蚌埠','淮南','马鞍山','淮北','安庆','黄山','阜阳','宿州','滁州','六安','宣城','池州','亳州'],
+'辽宁省':['沈阳','大连','鞍山','抚顺','本溪','丹东','锦州','营口','阜新','辽阳','盘锦','铁岭','朝阳','葫芦岛'],
+'江西省':['南昌','九江','景德镇','萍乡','新余','鹰潭','赣州','吉安','宜春','抚州','上饶'],
+'陕西省':['西安','咸阳','宝鸡','渭南','铜川','延安','榆林','汉中','安康','商洛'],
+'山西省':['太原','大同','阳泉','长治','晋城','朔州','晋中','运城','忻州','临汾'],
+'吉林省':['长春','吉林','四平','辽源','通化','白山','松原','白城'],
+'黑龙江省':['哈尔滨','齐齐哈尔','鸡西','鹤岗','双鸭山','大庆','伊春','佳木斯','七台河','牡丹江','黑河','绥化'],
+'云南省':['昆明','曲靖','玉溪','保山','昭通','丽江','普洱','临沧'],
+'贵州省':['贵阳','六盘水','遵义','安顺','毕节','铜仁'],
+'甘肃省':['兰州','嘉峪关','金昌','白银','天水','武威','张掖','平凉','酒泉','庆阳','定西','陇南'],
+'海南省':['海口','三亚','三沙','儋州'],
+'内蒙古':['呼和浩特','包头','乌海','赤峰','通辽','鄂尔多斯','呼伦贝尔','巴彦淖尔','乌兰察布'],
+'广西':['南宁','柳州','桂林','梧州','北海','防城港','钦州','贵港','玉林','百色','贺州','河池'],
+'西藏':['拉萨','日喀则','昌都','林芝','山南','那曲'],
+'宁夏':['银川','石嘴山','吴忠','固原','中卫'],
+'新疆':['乌鲁木齐','克拉玛依','吐鲁番','哈密'],
+'青海省':['西宁','海东'],
+'台湾省':['台北','高雄','台中','台南','新北'],
+'香港':['香港岛','九龙','新界'],
+'澳门':['澳门半岛','氹仔','路环']
+};
 
 // ==================== HELPERS ====================
 const F=c=>'¥'+(c/100).toFixed(2);
@@ -581,8 +626,9 @@ function showCheckout(){
   const cart=getCart();
   if(cart.length===0){ toast('购物车是空的','err'); return; }
   const total=cart.reduce((s,i)=>s+i.price*i.quantity,0);
+  const lastAddr = getAddresses()[0] || {};
+  const provinces = Object.keys(REGIONS);
 
-  // 创建遮罩层
   const overlay = document.createElement('div');
   overlay.id = 'checkout-overlay';
   overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:58px;background:rgba(0,0,0,0.5);z-index:300;display:flex;align-items:flex-end;justify-content:center';
@@ -590,10 +636,32 @@ function showCheckout(){
 
   overlay.innerHTML = `
   <div style="background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;padding:16px" onclick="event.stopPropagation()">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <h3 style="margin:0">📋 确认订单</h3>
       <button style="border:none;background:none;font-size:24px;cursor:pointer;padding:4px" onclick="closeCheckout()">&times;</button>
     </div>
+
+    <!-- 收货地址 -->
+    <h4 style="margin:0 0 8px">📍 收货地址</h4>
+    <div style="background:#f9fafb;border-radius:8px;padding:12px;margin-bottom:12px">
+      <input class="inp" id="addr-name" placeholder="收件人姓名" value="${lastAddr.name||''}" style="margin-bottom:8px">
+      <input class="inp" id="addr-phone" type="tel" placeholder="手机号码" value="${lastAddr.phone||''}" maxlength="11" style="margin-bottom:8px">
+      <select class="inp" id="addr-prov" onchange="addrProvChange()" style="margin-bottom:8px">
+        <option value="">请选择省份</option>
+        ${provinces.map(p=>`<option value="${p}" ${lastAddr.prov===p?'selected':''}>${p}</option>`).join('')}
+      </select>
+      <select class="inp" id="addr-city" onchange="addrCityChange()" style="margin-bottom:8px">
+        <option value="">请选择城市</option>
+        ${lastAddr.city?`<option value="${lastAddr.city}" selected>${lastAddr.city}</option>`:''}
+      </select>
+      <select class="inp" id="addr-dist" style="margin-bottom:8px">
+        <option value="">请选择区/县</option>
+        ${lastAddr.dist?`<option value="${lastAddr.dist}" selected>${lastAddr.dist}</option>`:''}
+      </select>
+      <input class="inp" id="addr-detail" placeholder="详细地址（街道、门牌号、楼层等）" value="${lastAddr.detail||''}" style="margin-bottom:0">
+    </div>
+
+    <!-- 商品清单 -->
     ${cart.map(i=>`
     <div style="display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
       <img src="${i.image}" alt="${i.name}" style="width:48px;height:48px;border-radius:6px;object-fit:cover;background:#f0f0f0" onerror="this.style.display='none'">
@@ -625,7 +693,61 @@ function showCheckout(){
 
   document.body.appendChild(overlay);
   payChannel='wechat';
+
+  // 回填上次选择的城市和区
+  setTimeout(()=>{
+    if(lastAddr.prov) addrProvChange(true);
+    if(lastAddr.city && lastAddr.prov){
+      const citySel = document.getElementById('addr-city');
+      const cities = REGIONS[lastAddr.prov]||[];
+      citySel.innerHTML = '<option value="">请选择城市</option>'+cities.map(c=>`<option value="${c}" ${lastAddr.city===c?'selected':''}>${c}</option>`).join('');
+      if(lastAddr.dist) addrCityChange(true);
+    }
+  },50);
 }
+
+// 三级联动
+function addrProvChange(keepCity){
+  const prov = document.getElementById('addr-prov').value;
+  const citySel = document.getElementById('addr-city');
+  const distSel = document.getElementById('addr-dist');
+  const cities = REGIONS[prov]||[];
+  citySel.innerHTML = '<option value="">请选择城市</option>'+cities.map(c=>`<option value="${c}">${c}</option>`).join('');
+  distSel.innerHTML = '<option value="">请选择区/县</option>';
+}
+function addrCityChange(keepDist){
+  const prov = document.getElementById('addr-prov').value;
+  const city = document.getElementById('addr-city').value;
+  // 直辖市：prov 和 city 重复，直接用 prov
+  const key = (prov===city) ? prov : city;
+  const dists = REGIONS[key]||REGIONS[prov]||[];
+  const distSel = document.getElementById('addr-dist');
+  if(dists.length>0 && typeof dists[0]==='string'){
+    distSel.innerHTML = '<option value="">请选择区/县</option>'+dists.map(d=>`<option value="${d}">${d}</option>`).join('');
+  } else {
+    distSel.innerHTML = '<option value="">请选择区/县</option>';
+  }
+}
+
+function getAddrFromForm(){
+  return {
+    name: document.getElementById('addr-name')?.value.trim()||'',
+    phone: document.getElementById('addr-phone')?.value.trim()||'',
+    prov: document.getElementById('addr-prov')?.value||'',
+    city: document.getElementById('addr-city')?.value||'',
+    dist: document.getElementById('addr-dist')?.value||'',
+    detail: document.getElementById('addr-detail')?.value.trim()||'',
+    full: ''
+  };
+}
+function addrToString(a){
+  const parts = [a.prov];
+  if(a.city&&a.city!==a.prov) parts.push(a.city);
+  if(a.dist) parts.push(a.dist);
+  if(a.detail) parts.push(a.detail);
+  return parts.join('');
+}
+
 
 function closeCheckout(){
   const o = document.getElementById('checkout-overlay');
@@ -647,11 +769,20 @@ function doPayModal(){
   if(cart.length===0)return;
   const total=cart.reduce((s,i)=>s+i.price*i.quantity,0);
 
+  // 收货地址
+  const addr = getAddrFromForm();
+  if(!addr.name){ toast('请填写收件人姓名','err'); return; }
+  if(!addr.phone||!/^1\d{10}$/.test(addr.phone)){ toast('请填写正确的手机号','err'); return; }
+  if(!addr.prov||!addr.city||!addr.detail){ toast('请完善收货地址','err'); return; }
+  addr.full = addrToString(addr);
+  saveAddress(addr);
+
   const order={
     id:uid(), outTradeNo:OTN(),
     items:cart.map(i=>({...i})),
     totalAmount:total, status:'PENDING', paymentChannel:payChannel,
     buyer:getUser()?.name||'匿名用户',
+    address: addr,
     paidAt:null, createdAt:new Date().toISOString()
   };
 
@@ -701,10 +832,16 @@ function mockPaySuccessModal(orderId){
         <i class="fas fa-check-circle" style="font-size:40px;color:var(--green)"></i>
       </div>
       <h3>支付成功！</h3>
-      <p style="color:var(--text2);margin:4px 0 16px">感谢购买</p>
+      <p style="color:var(--text2);margin:4px 0 8px">感谢购买</p>
       <p style="font-size:13px">订单号: ${order.outTradeNo}</p>
       <p style="font-size:20px;font-weight:700;color:var(--red);margin:4px 0">${F(order.totalAmount)}</p>
       <p style="font-size:12px;color:var(--text2)">${order.paymentChannel==='wechat'?'微信支付':'支付宝'}</p>
+      ${order.address ? `
+      <div style="background:#f9fafb;border-radius:8px;padding:10px;margin-top:10px;text-align:left;font-size:13px">
+        <p style="font-weight:600;margin-bottom:4px">📍 收货地址</p>
+        <p>${order.address.name} ${order.address.phone}</p>
+        <p style="color:var(--text2)">${order.address.full}</p>
+      </div>` : ''}
       <button class="btn btn-g btn-blk" style="margin-top:16px" onclick="closeCheckout();goBuyer('shop')">继续购物</button>
       <button class="btn btn-gray btn-blk" style="margin-top:8px" onclick="closeCheckout();goBuyer('profile')">查看订单</button>
       <div style="height:16px"></div>
@@ -761,6 +898,7 @@ function renderBuyerOrders(app){
           <span style="font-size:11px;color:var(--text2)">${o.paymentChannel==='wechat'?'微信':'支付宝'} · ${dt(o.createdAt)}</span>
           <span style="font-weight:700">${F(o.totalAmount)}</span>
         </div>
+        ${o.address ? `<div style="font-size:11px;color:var(--text2);margin-top:4px;border-top:1px solid var(--border);padding-top:4px">📍 ${o.address.full} (${o.address.name} ${o.address.phone})</div>` : ''}
       </div>`;
     });
   }
@@ -871,6 +1009,7 @@ function renderProfile(app){
       <div class="card" style="font-size:13px">
         <div class="sp"><span style="font-size:12px;color:var(--text2)">${o.outTradeNo}</span><span class="badge-s ${o.status}">${sMap[o.status]||o.status}</span></div>
         <div style="color:var(--text2);margin:4px 0">${o.items.map(i=>i.name+'×'+i.quantity).join('，')}</div>
+        ${o.address ? `<div style="font-size:11px;color:var(--text2);margin:2px 0">📍 ${o.address.name} ${o.address.phone} ${o.address.full}</div>` : ''}
         <div class="sp"><span style="font-size:11px;color:var(--text2)">${o.paymentChannel==='wechat'?'微信':'支付宝'} · ${dt(o.createdAt)}</span><span style="font-weight:700">${F(o.totalAmount)}</span></div>
       </div>`;
     }).join('')}
@@ -1034,6 +1173,7 @@ function renderSellerDashboard(app){
     <div class="card" style="font-size:13px">
       <div class="sp"><span>${o.outTradeNo}</span><span class="badge-s ${o.status}">${o.status}</span></div>
       <div style="color:var(--text2);margin:4px 0">${o.items?.map(i=>i.name+'×'+i.quantity).join('，')} | ${o.buyer||''}</div>
+      ${o.address ? `<div style="font-size:11px;color:var(--text2);margin:2px 0">📍 ${o.address.name} ${o.address.phone} ${o.address.full}</div>` : ''}
       <div class="sp"><span style="color:var(--text2);font-size:11px">${o.paymentChannel==='wechat'?'微信':'支付宝'} · ${dt(o.createdAt)}</span><span style="font-weight:700">${F(o.totalAmount)}</span></div>
     </div>`;
   });
@@ -1112,6 +1252,7 @@ function renderSellerOrders(app){
       <div class="card" style="font-size:13px">
         <div class="sp"><span style="font-size:12px;color:var(--text2)">${o.outTradeNo}</span><span class="badge-s ${o.status}">${sMap[o.status]||o.status}</span></div>
         <div style="color:var(--text2);margin:4px 0">${o.items?.map(i=>i.name+'×'+i.quantity).join('，')||''}</div>
+        ${o.address ? `<div style="font-size:12px;color:var(--text);margin:4px 0;background:#f0fdf4;padding:6px 8px;border-radius:6px">📍 ${o.address.name} · ${o.address.phone}<br><span style="color:var(--text2);font-size:11px">${o.address.full}</span></div>` : ''}
         <div style="font-size:11px;color:var(--text2)">买家: ${o.buyer||'未知'} | ${o.paymentChannel==='wechat'?'微信':'支付宝'} | ${dt(o.createdAt)}</div>
         <div class="sp"><span></span><span style="font-weight:700;font-size:16px">${F(o.totalAmount)}</span></div>
         ${o.status==='PAID'?`<button class="btn btn-g btn-sm" style="margin-top:8px;width:100%" onclick="shipOrder('${o.id}')">📦 标记已发货</button>`:''}
